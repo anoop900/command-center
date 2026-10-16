@@ -1,0 +1,9 @@
+From: LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>
+To: jordan@example.com
+Subject: 2 new jobs for you
+Message-ID: <linkedin_alert.eml@fixture>
+Date: Fri, 09 Oct 2026 07:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><style>.x{}</style><table><tr><td><a href="https://www.linkedin.com/comm/jobs/view/1111?trk=email">Operations Manager</a><br><span>Example Corp</span><br><span>Remote</span></td></tr><tr><td><a href="https://www.linkedin.com/comm/jobs/view/2222?trk=email">Program Lead</a><br><span>Sample Industries</span><br><span>Austin, TX</span></td></tr><tr><td><a href="https://www.linkedin.com/help">Help</a></td></tr></table></body></html>

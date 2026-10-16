@@ -1,0 +1,1726 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{TITLE}}</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: chief-of-staff console. Left nav (top bar on phones). Today = action queue; Week = targets + daily bars; Board = every role; drawer = role / prep detail. */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#17202c; --muted:#5a6575; --line:#d9e0e9;
+  --accent:#1f3a5f; --accent-ink:#ffffff; --accent-soft:#e5ecf5;
+  --warn:#a3500f; --warn-bg:#fcf1e4; --ok:#2b6a4a; --ok-bg:#e5f1ea; --bad:#9a2b2b; --bad-bg:#f8e8e8; --hot:#7a3db8; --hot-bg:#f1e9fa;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e131a; --surface:#161d27; --ink:#e5eaf1; --muted:#98a4b5; --line:#283241;
+  --accent:#8fb3e0; --accent-ink:#0e131a; --accent-soft:#1c2a3c;
+  --warn:#f0a35e; --warn-bg:#33231a; --ok:#7cc59c; --ok-bg:#15281e; --bad:#ec8f8f; --bad-bg:#331b1b; --hot:#c39cf0; --hot-bg:#2a2038; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --surface:#161d27; --ink:#e5eaf1; --muted:#98a4b5; --line:#283241;
+  --accent:#8fb3e0; --accent-ink:#0e131a; --accent-soft:#1c2a3c;
+  --warn:#f0a35e; --warn-bg:#33231a; --ok:#7cc59c; --ok-bg:#15281e; --bad:#ec8f8f; --bad-bg:#331b1b; --hot:#c39cf0; --hot-bg:#2a2038; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.45}
+.app{display:grid;grid-template-columns:200px minmax(0,1fr);min-height:100vh}
+nav{background:var(--surface);border-right:1px solid var(--line);padding-block:20px;padding-inline:14px;display:grid;align-content:start;gap:4px}
+nav .brand{font-weight:600;padding:4px 10px 14px;display:flex;align-items:center;gap:8px}
+nav .logo,.wlogo{width:24px;height:24px;flex:none}
+.wizbrand{display:none;position:fixed;top:12px;left:16px;z-index:60;align-items:center;gap:8px;font-weight:600}
+#wiz:not([hidden]) + .wizbrand{display:flex}
+nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:6px;display:flex;justify-content:space-between;gap:8px}
+nav button[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
+nav .src{position:fixed;left:0;bottom:0;width:200px;box-sizing:border-box;padding:10px 24px;font-size:.78rem;color:var(--muted,inherit);opacity:.8}
+nav .src a{color:inherit}
+nav .n{font-family:var(--mono);font-size:.8rem;opacity:.8}
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-inline:24px;padding-block:24px 56px;display:grid;gap:22px;align-content:start;max-width:1120px;width:100%}
+@media (max-width:760px){.app{grid-template-columns:1fr}nav .src{position:static;width:auto;padding:4px 10px;align-self:center}nav{border-right:0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;padding-inline:16px;padding-block:8px}nav .brand{display:none}main{padding-inline:16px}}
+h1{font-size:1.55rem;margin:0;font-weight:600;text-wrap:balance}
+h2{font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+h3{margin:0;font-size:1rem;font-weight:600}
+.sub{color:var(--muted)}
+.note{font-size:.82rem;color:var(--muted);margin:0}
+section{display:grid;gap:10px;min-width:0}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:2px;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.stat:hover{border-color:var(--accent)} .stat:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stat .k{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:1.6rem;font-variant-numeric:tabular-nums;color:var(--accent)}
+.stat .s{font-size:.78rem;color:var(--muted)}
+.stat.alert{background:var(--warn-bg);border-color:var(--warn)} .stat.alert .v{color:var(--warn)}
+.list{display:grid;gap:8px}
+.item{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:6px;padding:10px 12px;display:grid;gap:6px;min-width:0}
+.item[data-p="1"]{border-left-color:var(--hot)} .item[data-p="2"]{border-left-color:var(--warn)} .item[data-p="3"]{border-left-color:var(--accent)}
+.item .top{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;justify-content:space-between}
+.item .t{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.item .d{color:var(--muted);font-size:.88rem;overflow-wrap:anywhere}
+.n.flag{background:var(--warn);color:#fff;border-radius:999px;padding:0 .5em;opacity:1;margin-left:4px;white-space:nowrap}
+.tag.gate_failed{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+#gate details{margin:8px 0;border:1px solid var(--warn);border-radius:8px;background:var(--warn-bg);padding:6px 10px}
+#gate summary{cursor:pointer;font-weight:600;color:var(--warn)}
+#gate .gitem{padding:8px 0;border-top:1px solid var(--line)}
+#gate .why{font-size:.85rem;margin:2px 0 6px}
+.tag{font-size:.72rem;padding:1px 8px;border-radius:999px;border:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.tag.hot{background:var(--hot-bg);border-color:var(--hot);color:var(--hot)}
+.tag.ready{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.tag.applied{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.tag.interviewing{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+.tag.closed,.tag.skipped{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+.actions{display:flex;flex-wrap:wrap;gap:6px}
+.btn{all:unset;cursor:pointer;font-size:.84rem;padding:5px 11px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.modepanel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px;font-size:.84rem}
+.modepanel .badge{font-family:var(--mono);font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 9px}
+.modepanel .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap} .modepanel ul{margin:2px 0 0;padding-left:18px;color:var(--muted)} .modepanel pre{margin:4px 0;font-family:var(--mono)}
+.btn[disabled]{opacity:.45;cursor:default}
+.btn.good{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.btn.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+.btn.warn{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+.btn.hot{background:var(--hot-bg);border-color:var(--hot);color:var(--hot)}
+.card[data-stage]{border-left-width:5px;border-left-style:solid}
+.card[data-stage="new"]{border-left-color:var(--accent)} .card[data-stage="ready"]{border-left-color:var(--hot)}
+.card[data-stage="applied"]{border-left-color:var(--ok)} .card[data-stage="interviewing"]{border-left-color:var(--warn);background:linear-gradient(90deg,var(--warn-bg),var(--surface) 40%)}
+.card[data-stage="closed"],.card[data-stage="skipped"]{border-left-color:var(--bad);opacity:.8}
+.tag.new{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.why-other{display:flex;gap:6px;margin-top:8px} .why-other input{flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit}
+a.btn{text-decoration:none}
+.empty{color:var(--muted);background:var(--ok-bg);border-radius:6px;padding:12px}
+.cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:22px}
+@media (max-width:900px){.cols{grid-template-columns:1fr}}
+#today-main{display:grid;gap:22px;min-width:0}
+#today-side{display:grid;gap:14px;min-width:0}
+#ask-side{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;gap:10px;align-content:start}
+@media (min-width:1000px){main:has(#view-today:not([hidden])){max-width:1600px}
+#view-today{grid-template-columns:minmax(0,1fr) minmax(340px,32%);align-items:start}
+#today-side{grid-column:2;grid-row:1;position:sticky;top:16px;max-height:calc(100vh - 32px)}
+#today-side.asking{height:calc(100vh - 32px);grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+#today-side.asking>*{overflow-y:auto;min-height:0}
+#view-today .cols{grid-template-columns:1fr 1fr}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{all:unset;cursor:pointer;font-size:.84rem;padding:4px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:6px;cursor:pointer;align-content:start;min-width:0}
+.card:hover{border-color:var(--accent)}
+.meta{font-size:.84rem;color:var(--muted);overflow-wrap:anywhere}
+.bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:end;height:150px;padding-top:8px;border-bottom:1px solid var(--line)}
+.bar{display:grid;align-content:end;gap:2px;height:100%;justify-items:center}
+.bar span{width:70%;border-radius:3px 3px 0 0;background:var(--accent)}
+.bar span.r{background:var(--ok)} .bar span.i{background:var(--warn)}
+.bar b{font-family:var(--mono);font-size:.75rem;font-weight:500;color:var(--muted)}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;font-size:.75rem;color:var(--muted);text-align:center}
+.legend{display:flex;gap:14px;font-size:.8rem;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.target{display:grid;gap:4px}
+.target .row{display:flex;justify-content:space-between;font-size:.88rem}
+.meter{height:8px;background:var(--accent-soft);border-radius:999px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+.meter.done i{background:var(--ok)}
+.drawer{position:fixed;inset:0;background:rgba(10,15,22,.45);display:flex;justify-content:flex-end;z-index:5}
+.panel{background:var(--bg);width:min(600px,100%);height:100%;overflow-y:auto;padding-inline:20px;padding-block:calc(20px + env(safe-area-inset-top,0px)) 40px;display:grid;gap:14px;align-content:start}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:grid;gap:8px;min-width:0}
+.kv{display:grid;grid-template-columns:100px minmax(0,1fr);gap:4px 10px;font-size:.9rem;margin:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0;overflow-wrap:anywhere}
+.box ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.fu label{display:grid;gap:4px;font-size:.84rem;color:var(--muted)}
+.fu select,.fu input,.fu textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:100%}
+.fu textarea{min-height:150px;resize:vertical}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:6px;font-size:.9rem;z-index:9}
+.who{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;justify-content:space-between}
+.item[data-due="over"]{border-left-color:var(--bad)} .item[data-due="soon"]{border-left-color:var(--warn)} .item[data-due="ok"]{border-left-color:var(--ok)}
+.tag.over{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)} .tag.soon{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)} .tag.okk{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+.form input,.form select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:100%;box-sizing:border-box}
+.review li{margin-bottom:2px}
+.fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:6;background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:11px 16px;font:600 .92rem var(--sans);cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.25)}
+.chat textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;width:100%;min-height:80px;box-sizing:border-box}
+.msg{white-space:pre-wrap;font-size:.9rem}
+.tag.queued{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)} .tag.working{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)} .tag.done{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)} .tag.needs{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+.banner{background:var(--warn-bg);border:1px solid var(--warn);border-radius:6px;padding:10px 12px;font-size:.9rem}
+.attn{background:var(--surface);border:1px solid var(--warn);border-left:5px solid var(--warn);border-radius:8px;padding:12px 14px;display:grid;gap:10px}
+.attn .head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.attn h3 .c{font-family:var(--mono);font-size:.8rem;color:var(--warn);margin-left:6px}
+.attn .row{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.attn .row .txt{flex:1 1 260px;min-width:0;overflow-wrap:anywhere;font-size:.92rem}
+.attn .row .kind{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-right:6px}
+.attn .row .kind.a{color:var(--warn)} .attn .row .kind.f{color:var(--muted)}
+.attn details summary{cursor:pointer;color:var(--muted);font-size:.86rem;padding-top:6px}
+.actions .tag{align-self:center}
+.builds{display:grid;gap:6px}
+.bld{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--warn);border-radius:6px;padding:8px 12px}
+.bld[data-s="ready"]{border-left-color:var(--ok)} .bld[data-s="slow"]{border-left-color:var(--bad)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:6px;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+</style>
+<div class="app">
+  <nav aria-label="Views">
+    <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--accent)"/><g transform="translate(16 16) scale(.78) translate(-16 -16)"><rect x="6" y="7" width="20" height="14" rx="2" fill="none" stroke="var(--accent-ink)" stroke-width="2.2"/><path d="M10 14 L13.5 17.5 L21 10.5" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 25 H20" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round"/></g></svg><span id="brand">{{TITLE}}</span></div>
+    <button id="nav-today" data-view="today" aria-current="page">Today <span class="n" id="n-today"></span></button>
+    <button id="nav-week" data-view="week">Week</button>
+    <button id="nav-board" data-view="board">Board <span class="n" id="n-board"></span><span class="n flag" id="n-gate" hidden></span></button>
+    <button id="nav-people" data-view="people">People <span class="n" id="n-people"></span></button>
+    <button id="nav-tasks" data-view="tasks">Tasks <span class="n" id="n-tasks"></span></button>
+    <button id="nav-offers" data-view="offers">Offers &amp; admin <span class="n" id="n-offers"></span></button>
+    <button id="nav-learning" data-view="learning">Learning &amp; improvement</button>
+    <button id="nav-backup" data-wiz="gbackup" type="button">Backup &amp; restore</button>
+    <button id="nav-kits" data-wiz="gkits" type="button">Kit folder</button>
+    <button id="nav-profile" data-wiz="gprofile">Profile <span class="n flag" id="n-profile" hidden></span></button>
+    <button id="nav-setup" data-wiz="open">Setup</button>
+    <div class="src" id="source">Source: <a href="https://github.com/anoop900/command-center" target="_blank" rel="noopener noreferrer">anoop900/command-center</a></div>
+  </nav>
+    <div id="wiz" hidden style="position:fixed;inset:0;z-index:50;background:var(--bg,#fff);overflow:auto;padding:56px 20px 32px"></div>
+  <div class="wizbrand" id="wizbrand"><svg class="logo wlogo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--accent)"/><g transform="translate(16 16) scale(.78) translate(-16 -16)"><rect x="6" y="7" width="20" height="14" rx="2" fill="none" stroke="var(--accent-ink)" stroke-width="2.2"/><path d="M10 14 L13.5 17.5 L21 10.5" fill="none" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 25 H20" stroke="var(--accent-ink)" stroke-width="2.6" stroke-linecap="round"/></g></svg><span id="wbrand">Command Center</span></div>
+  <main>
+    <div id="pbar" role="status" hidden style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;display:grid;gap:6px"></div>
+    <div id="view-today" style="display:grid;gap:22px">
+      <div id="today-main"><header><h1 id="greet">Good morning.</h1><div class="sub" id="stamp">Loading today's plan…</div>
+        <div class="actions" style="margin-top:8px"><button class="btn primary" id="addrole-open">+ Add a role manually</button>
+          <span class="note">Found a job yourself? Add it here and request a kit.</span></div></header>
+      <div class="builds" id="builds" hidden></div>
+      <div id="banner" hidden></div>
+      <section class="modepanel" id="modepanel" hidden></section>
+      <div class="strip" id="strip"></div>
+      <section><h2 id="mytasks-h">My tasks</h2><div class="list" id="mytasks"></div></section>
+      <section><h2 id="todo-h">Today's to-do</h2><div class="list" id="todos"><div class="empty">Today's plan appears here after the morning run. Nothing loaded yet.</div></div></section>
+      <div class="cols">
+        <section><h2 id="new-h">New roles to triage</h2><div class="list" id="triage"></div></section>
+        <section><h2 id="nudge-h">Nudges due</h2><div class="list" id="nudges"></div>
+          <h2 style="margin-top:12px">This week</h2><div class="list" id="agenda"></div>
+          <h2 style="margin-top:12px">Inbox needs you</h2><div class="list" id="inbox"></div>
+          <h2 style="margin-top:12px">Open loops</h2><div class="list" id="loops"></div></section>
+      </div>
+      </div>
+      <aside id="today-side"><div class="coach" id="coach-t"></div><div id="ask-side" hidden></div></aside>
+    </div>
+    <div id="view-week" hidden style="display:grid;gap:22px">
+      <header><h1>This week</h1><div class="sub" id="week-sub"></div></header>
+      <section><h2>Targets</h2><div class="list" id="targets"></div></section>
+      <section><h2>By day</h2>
+        <div class="legend"><span><i style="background:var(--accent)"></i>Applied</span><span><i style="background:var(--ok)"></i>Replies</span><span><i style="background:var(--warn)"></i>Interviews</span></div>
+        <div class="bars" id="bars" role="img" aria-label="Applications, replies and interviews per day"></div><div class="days" id="days"></div></section>
+      <section><h2>Coming up</h2><div class="list" id="upcoming"></div></section>
+      <section><h2>Weekly review</h2><div id="review"></div></section>
+      <section><h2>Decisions</h2><div class="list" id="decisions"></div></section>
+    </div>
+    <div id="view-people" hidden style="display:grid;gap:22px">
+      <header><h1>People</h1><div class="sub">Recruiters, hiring managers and warm contacts. Nothing is ever sent for you.</div></header>
+      <section><h2 id="pp-due-h">Nudges due</h2><div class="list" id="pp-due"></div></section>
+      <section><h2>Everyone</h2><div class="list" id="pp-all"></div></section>
+      <section><h2>Target companies</h2><div class="list" id="targets-list"></div></section>
+      <section class="box"><h2>Add a contact</h2><div class="form">
+        <input id="c-name" placeholder="Name"><input id="c-co" placeholder="Company">
+        <select id="c-type"><option value="recruiter">Recruiter</option><option value="hiring">Hiring manager</option><option value="interviewer">Interviewer</option><option value="warm">Warm contact</option></select>
+        <select id="c-ch"><option value="email">Email</option><option value="linkedin">LinkedIn</option><option value="phone">Phone</option></select>
+        <input id="c-note" placeholder="Note (role, context)"></div>
+        <div class="actions"><button class="btn primary" id="c-add">Add contact</button></div></section>
+    </div>
+    <div id="view-tasks" hidden style="display:grid;gap:22px">
+      <header><h1>Tasks and reminders</h1><div class="sub">Due tasks also appear in your morning notification.</div></header>
+      <section class="box"><h2>Add a task</h2><div class="form">
+        <input id="t-title" placeholder="What needs doing"><input id="t-due" type="date" title="Due date">
+        <select id="t-pri"><option value="1">High</option><option value="2" selected>Normal</option><option value="3">Low</option></select>
+        <input id="t-about" placeholder="About (company or person, optional)"></div>
+        <div class="actions" style="margin-top:8px"><button class="btn primary" id="t-add">Add task</button></div></section>
+      <section><h2>Overdue and today</h2><div class="list" id="tasks-now"></div></section>
+      <section><h2>Coming up</h2><div class="list" id="tasks-later"></div></section>
+      <section><h2>No date</h2><div class="list" id="tasks-nodate"></div></section>
+    </div>
+    <div id="view-learning" hidden style="display:grid;gap:22px">
+      <header><h1>Learning &amp; improvement</h1><div class="sub" id="learn-sub">What your search history says to fix, and how.</div></header>
+      <div id="learn-body"></div>
+    </div>
+    <div id="view-offers" hidden style="display:grid;gap:22px">
+      <header><h1>Offers &amp; admin</h1><div class="sub" id="offers-sub">Your numbers, your call.</div></header>
+      <section><h2>Offers</h2><div class="list" id="offers-list"></div>
+        <div class="box"><h2>Add or update an offer</h2><div class="form">
+          <input id="o-co" placeholder="Company"><input id="o-title" placeholder="Title">
+          <select id="o-type"><option value="perm">Permanent</option><option value="contract">Contract</option></select>
+          <input id="o-base" inputmode="decimal" placeholder="Base $/yr or rate $/hr"><input id="o-bonus" inputmode="decimal" placeholder="Bonus % (target)">
+          <input id="o-other" placeholder="Equity / signing / other"><input id="o-pto" placeholder="Vacation"><input id="o-mode" placeholder="Remote / hybrid / on-site">
+          <input id="o-start" placeholder="Start date"><input id="o-deadline" type="date" title="Decision deadline"><input id="o-walk" inputmode="decimal" placeholder="Your walk-away (private)"></div>
+          <input id="o-notes" placeholder="Notes" style="width:100%;margin-top:8px;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);box-sizing:border-box">
+          <div class="actions" style="margin-top:8px"><button class="btn primary" id="o-save">Save offer</button></div>
+          <p class="note">The assistant never suggests a number. Compare, then decide.</p></div></section>
+      <section><h2>References</h2><div class="list" id="refs-list"></div>
+        <div class="box"><h2>Add a reference</h2><div class="form"><input id="r-name" placeholder="Name"><input id="r-rel" placeholder="Relationship (e.g. my manager at my last employer)"><input id="r-co" placeholder="Company and years"><input id="r-asked" type="date" title="Last asked"></div>
+          <div class="actions" style="margin-top:8px"><button class="btn primary" id="r-save">Add reference</button></div></div></section>
+      <section><h2>Admin and renewals</h2><div class="list" id="admin-list"></div></section>
+    </div>
+    <div id="view-board" hidden style="display:grid;gap:16px">
+      <header><h1>Job board</h1><div class="sub">Every role the pipeline has screened, built or tracked.</div></header>
+      <div class="chips" id="chips"></div>
+      <input id="bq" type="search" placeholder="Search company or title (all stages)" aria-label="Search roles" style="width:100%;max-width:420px;margin:8px 0;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit;font:inherit">
+      <div class="board" id="board"></div>
+      <div id="gate"></div>
+    </div>
+  </main>
+</div>
+<div class="drawer" id="drawer" hidden><div class="panel" id="panel" role="dialog" aria-modal="true" aria-label="Details"></div></div>
+<button class="fab" id="fab" aria-label="Ask">Ask</button>
+<div class="toast" id="toast" hidden></div>
+<script src="/shim.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LABEL = {review:'Review requested', applied:'Applied', skipped:'Not applying', followed_up:'Followed up', interview:'Interview', callback:'Got a call back', next_round:'Next round', offer:'Offer', rejected:'Rejected', withdrew:'Withdrew', no_response:'No response', build_now:'Build requested', done:'Done', gate_apply:'Applying anyway', gate_later:'Decide later', gate_skip:'Not applying'};
+const STATUS = {applied:'applied', interview:'interviewing', callback:'interviewing (call back)', next_round:'interviewing (next round)', offer:'offer', rejected:'rejected', no_response:'closed (no response)'};
+const WITHDRAW = ['Pay too low','Role not as described','Took another offer','Location / commute','Process too slow','Lost interest'];
+const SKIP = ['Not a match','Pay too low','Location','Too technical / coding','Level wrong','Contract vs permanent','Company / culture','Already applied elsewhere','Not interested'];
+// Private settings (db doc config/settings, written at setup; never in the repo):
+// {owner, title, kit_root, pc (kits also copied to the PC), pc_runs (scheduled runs need the PC), voice, facts, offer: {perm: [floor, target], contract: [floor, target]}, offer_text, refs_hint,
+//  builder_trigger, assistant_trigger, calendar: "outlook"|"google"}
+let S = {};
+// Name at the top left: the saved title, else "<first name>'s Command Center" from the profile, else plain.
+let FIRST = '', KITS_DIR = '';
+function setBrand(){
+  const t = S.title || (FIRST ? FIRST + "'s Command Center" : 'Command Center');
+  document.title = t; $('brand').textContent = t; $('wbrand').textContent = t;
+}
+fetch('/profile/status').then(r => r.json()).then(j => { FIRST = (j.first_name || '').trim(); KITS_DIR = j.kits_dir || ''; setBrand(); render(); }).catch(() => {});
+function applySettings(x){
+  S = x || {};
+  VOICE = S.voice || DEFAULT_VOICE; FACTS = S.facts || '';
+  setBrand();
+  $('offers-sub').textContent = 'Your numbers, your call.' + (S.offer_text ? ' ' + S.offer_text : '');
+  render();
+}
+let TASKS = [], REQS = [];
+let CONTACTS = [], TARGETS = [], DECISIONS = [], REVIEW = null, OFFERS = [], REFS = [], ADMIN = [];
+let db = null, sample = null, askSvc = null, ROLES = [], TODAY = null, PREPS = {}, pending = {}, filter = 'ready', canWrite = true;
+const todayISO = () => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; };
+const days = d => d ? Math.round((new Date(todayISO()) - new Date(String(d).slice(0,10))) / 864e5) : null;
+const isManual = r => r.source === 'manual' && ['new', 'ready'].includes(r.stage); // a role you added by hand outranks every automatic one
+const inView = (r, f) => f === 'all' || r.stage === f || (f === 'ready' && isManual(r));
+const docId = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,120) || 'x';
+
+function stageOf(r){
+  const p = pending[r.key]; if (!p) return r.stage === 'ready' && !hasKit(r) ? 'new' : r.stage; // Kits ready means the kit exists
+  return {applied:'applied', interview:'interviewing', callback:'interviewing', next_round:'interviewing', offer:'interviewing', rejected:'closed', withdrew:'closed', no_response:'closed', skipped:'skipped', gate_apply:'new', gate_skip:'skipped'}[p.action] || r.stage;
+}
+const roles = () => ROLES.map(r0 => { const r = {...r0, review: KREV[r0.key] || r0.review}; return {...r, gate_review: pending[r.key]?.action === 'gate_later' ? 'later' : r.gate_review, stage: stageOf(r), pend: pending[r.key], build: buildState(r), rev: reviewState(r), cov: coverState(r)}; });
+const byKey = k => roles().find(r => r.key === k);
+
+// ---- Kit builds and reviews: state comes from the server's `jobs` collection, so a role stays visible while it builds.
+let JOBS = {}, KREV = {}, KITS = null, KIDX = {}, downloads = null; // KIDX: db kitindex/<role doc id> {key, folder, files[{slot,name,doc}], on_pc} // KREV: db kitreviews/<role doc id> {key, at, verdict, grounding_issues, fixed, suggestions, notes}
+const SLOW_MIN = 20;
+const buildMin = b => b && b.ts ? Math.max(0, Math.round((Date.now() - new Date(b.ts)) / 6e4)) : null;
+const jobOf = (kind, r) => JOBS[kind + '-' + docId(r.key)] || null;
+const JOBSTATE = {running: 'building', failed: 'failed', needs_posting: 'needs_posting', waiting: 'waiting', done: 'ready'};
+function buildState(r){
+  const j = jobOf('kit', r); if (!j || j.seen || !JOBSTATE[j.state]) return null;
+  if (!['running', 'done'].includes(j.state) && hasKit(r)) return null; // a failed or stalled rebuild does not matter once a kit exists
+  if (j.state !== 'running' && !['new', 'ready'].includes(stageOf(r))) return null; // applied, closed or skipped: a failed build is no longer news
+  return {s: JOBSTATE[j.state], b: j, m: buildMin(j) ?? 0, why: j.reason || ''};
+}
+// Kit review: the job row says how it went; the review itself arrives in KREV/r.review.
+function reviewState(r){
+  const j = jobOf('review', r); if (!j || j.seen || !JOBSTATE[j.state]) return null;
+  const s = j.state === 'running' ? 'reviewing' : j.state === 'done' ? 'done' : JOBSTATE[j.state];
+  return {s, v: j, rv: r.review, m: buildMin(j) ?? 0, why: j.reason || ''};
+}
+// Cover letter (on request): the job row says how it went; the file arrives in the kit's downloads.
+function coverState(r){
+  const j = jobOf('cover', r); if (!j || j.seen || !JOBSTATE[j.state]) return null;
+  return {s: j.state === 'running' ? 'writing' : JOBSTATE[j.state], v: j, m: buildMin(j) ?? 0, why: j.reason || ''};
+}
+// Reviewed edits to the kit: nothing changes until the user presses Apply. Resume edits are shown but not applicable here.
+function reviewEdits(r){
+  const rv = r.review, ed = rv && Array.isArray(rv.part_a) ? rv.part_a : [];
+  if (!ed.length) return '';
+  const done = new Set(rv.applied || []);
+  return '<ol class="edits">' + ed.map((e, i) => `<li><span class="note">${esc(e.reason || '')} · ${esc(e.file || '')}</span><br>
+    <del>${esc(e.old_string || '')}</del><br><ins>${esc(e.new_string || '')}</ins><br>${done.has(i) ? '<span class="note">Applied</span>'
+    : e.file === 'kit' ? `<button class="btn" data-applyedit="${esc(r.key)}" data-i="${i}">Apply to kit</button>` : '<span class="note">Change the resume by hand.</span>'}</li>`).join('') + '</ol>';
+}
+async function applyEdit(key, i){
+  try {
+    const res = await fetch('/review/apply', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({role: key, index: i})});
+    const j = await res.json();
+    if (!res.ok) return toast(j.error || 'Could not apply that edit.');
+    if (KREV[key]) { KREV[key].applied = j.applied; KREV[key].fixed = j.applied.length; }
+    toast('Applied to the kit. Rebuild the resume to see it there.'); render(); openRole(key);
+  } catch (e) { toast('Could not apply that edit.'); }
+}
+function reviewSummary(rv){
+  if (!rv) return '';
+  const g = rv.grounding_issues ?? 0, f = rv.fixed ?? 0, sg = rv.suggestions ?? 0;
+  return `${rv.verdict || 'Reviewed'} · ${g} fact issue${g === 1 ? '' : 's'} · ${f} fixed · ${sg} suggestion${sg === 1 ? '' : 's'}`;
+}
+// ---- Kit files live in the dashboard db (kitindex + kitfiles), so kits download from any device; the PC folder is an optional copy.
+const SLOTNAME = {resume: 'Resume', docx: 'Resume (Word)', kit: 'Kit notes', cover: 'Cover letter'};
+const kitOf = r => { const k = KIDX[r.key]; return k && (k.files || []).length ? k : null; };
+const hasKit = r => !!(r.kit || kitOf(r)); // imported kits are in kitindex but the role record has no `kit`
+function kitButtons(r){
+  const k = kitOf(r); if (!k || !downloads) return '';
+  return (k.files || []).filter(f => SLOTNAME[f.slot]).map(f => `<button class="btn${f.slot === 'resume' ? ' good' : ''}" ${f.url ? `data-dlurl="${esc(f.url)}" data-name="${esc(f.name)}"` : `data-dl="${esc(f.doc)}"`}>${SLOTNAME[f.slot]}</button>`).join('');
+}
+function kitPath(r){ // full folder of this role's kit on this computer, or ''
+  const k = kitOf(r), sub = r.kit || (k && k.folder) || '', root = KITS_DIR || S.kit_root;
+  const sep = String(root).includes('/') && !String(root).includes('\\') ? '/' : '\\';
+  return sub ? (root ? String(root).replace(/[\\/]+$/, '') + sep : '') + sub.replace(/[\\/]+/g, sep) : '';
+}
+function kitWhere(r){
+  const k = kitOf(r), path = kitPath(r);
+  if (!k) return path ? esc(path) : 'Not built';
+  return path ? `Saved on this computer: <code>${esc(path)}</code> <button class="btn" data-openkit="${esc(r.kit || k.folder || '')}">Open folder</button>` : 'Saved on this computer. Download it here.';
+}
+async function openKitFolder(sub){
+  try { await wizCall('/kits-folder/open', {sub}); }
+  catch (e) { toast(e.message || 'Could not open the folder.'); }
+}
+async function downloadKitUrl(url, name){
+  if (!downloads) return;
+  try { const res = await fetch(url); if (!res.ok) throw new Error('missing'); await downloads.save({filename: name || 'kit', data: await res.blob()}); }
+  catch (e) { toast('That file is no longer on this computer. Build the kit again.'); }
+}
+async function downloadKit(docIdv){
+  if (!db || !downloads) return;
+  try {
+    const d = await db.doc('kitfiles/' + docIdv).get();
+    if (!d.exists) { toast('That file is no longer stored. Build the kit again.'); return; }
+    const x = d.data();
+    let data = x.data;
+    if (x.enc === 'b64') { const bin = atob(x.data); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); data = new Blob([u]); }
+    await downloads.save({filename: x.name || 'kit', data});
+  } catch (e) { if (e && e.code && !['cancelled','declined','dismissed'].includes(e.code)) toast('Download did not start (' + e.code + ').'); }
+}
+const hhmm = ts => { try { return new Date(ts).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}); } catch (e) { return ''; } };
+function buildTag(r){
+  const x = r.build; if (!x) return '';
+  if (x.s === 'building') return `<span class="tag working"><span class="dot"></span>Building kit · ${x.m} min</span>`;
+  if (x.s === 'failed') return `<span class="tag over">Build failed</span>`;
+  if (x.s === 'needs_posting') return `<span class="tag over">Needs the posting text</span>`;
+  if (x.s === 'waiting') return `<span class="tag working">Waiting for your pasted answer</span>`;
+  return `<span class="tag done">Kit ready</span>`;
+}
+function jobRow(r, x, kind){
+  const who = `<b>${esc(r.company)}</b> · ${esc(r.title)}`, what = kind === 'review' ? 'review' : kind === 'cover' ? 'cover letter' : 'kit', k = esc(r.key);
+  const run = kind === 'review' ? 'data-review' : kind === 'cover' ? 'data-cover' : 'data-build', seen = kind === 'review' ? 'data-rseen' : kind === 'cover' ? 'data-cseen' : 'data-bseen';
+  const dismiss = `<button class="btn" ${seen}="${k}">Dismiss</button>`;
+  let msg, acts = '', st = x.s;
+  if (x.s === 'building' || x.s === 'reviewing' || x.s === 'writing') {
+    msg = `<span><span class="dot"></span>${kind === 'review' ? 'Reviewing the kit' : kind === 'cover' ? 'Writing the cover letter' : 'Building the kit'} for ${who}. Started ${esc(hhmm(x.v ? x.v.ts : x.b.ts))}. This runs here; you can keep using Command Center.</span>`; st = 'building';
+  } else if (x.s === 'failed') {
+    msg = `<span>The ${what} for ${who} did not finish. ${esc(x.why || 'Try again.')}</span>`; acts = `<button class="btn warn" ${run}="${k}">Try again</button>${dismiss}`; st = 'slow';
+  } else if (x.s === 'needs_posting') {
+    msg = `<span>To ${kind === 'review' ? 'review the kit' : kind === 'cover' ? 'write the cover letter' : 'build the kit'} for ${who}, paste the job posting text. ${esc(x.why || '')}</span>`; acts = `<button class="btn primary" data-posting="${k}" data-kind="${kind}">Paste posting</button>${dismiss}`; st = 'slow';
+  } else if (x.s === 'waiting') {
+    msg = `<span>Your AI mode is waiting for you to paste an answer for ${who}. Open <b>AI cards</b> in Settings, paste the answer, then try again.</span>`; acts = `<button class="btn warn" ${run}="${k}">Check again</button>${dismiss}`; st = 'slow';
+  } else if (kind === 'cover') {
+    msg = `<span>Cover letter ready for ${who}. It is saved with the kit.</span>`; acts = `${kitButtons(r)}${dismiss}`;
+  } else if (kind === 'review') {
+    msg = `<span>${x.rv ? `Review done for ${who}: ${esc(reviewSummary(x.rv))}.` : `The review for ${who} finished but left no result. Press Review kit to run it again.`}</span>`; acts = `<button class="btn" data-open="${k}">Details</button>${dismiss}`; st = 'ready';
+  } else {
+    msg = `<span>Kit ready for ${who}${x.why ? '. ' + esc(x.why) : ''}.</span>`;
+    acts = `${r.link ? `<a class="btn primary" href="${esc(r.link)}" target="_blank" rel="noopener">Apply</a>` : ''}${kitButtons(r)}<button class="btn" data-open="${k}">Details</button>${dismiss}`;
+  }
+  return `<div class="bld" data-s="${st}" role="status">${msg}<div class="actions">${acts}</div></div>`;
+}
+function renderBuilds(){
+  const L = roles().filter(r => r.build), RV = roles().filter(r => r.rev), CV = roles().filter(r => r.cov);
+  $('builds').hidden = !L.length && !RV.length && !CV.length;
+  $('builds').innerHTML = CV.map(r => jobRow(r, r.cov, 'cover')).join('') + RV.map(r => jobRow(r, r.rev, 'review')).join('') + L.map(r => jobRow(r, r.build, 'kit')).join('');
+}
+async function jobSeen(kind, key){
+  const j = JOBS[kind + '-' + docId(key)]; if (!j) return;
+  j.seen = true; render();
+  if (db) { try { await db.collection('jobs').doc(kind + '-' + docId(key)).update({seen: true}); } catch (e) {} }
+}
+const reviewSeen = key => jobSeen('review', key), buildSeen = key => jobSeen('kit', key), coverSeen = key => jobSeen('cover', key);
+function noticeKits(){ // toast when a role being built gains its kit
+  const now = new Set(ROLES.filter(hasKit).map(r => r.key));
+  if (KITS) for (const k of now) if (!KITS.has(k) && JOBS['kit-' + docId(k)]) { const r = ROLES.find(x => x.key === k); toast(`Kit ready: ${r?.company || ''}`); }
+  KITS = now;
+}
+
+function roleButtons(r, compact){
+  const b = [];
+  if (r.link) b.push(`<a class="btn primary" href="${esc(r.link)}" target="_blank" rel="noopener">Apply</a>`);
+  if (['new','ready'].includes(r.stage)) {
+    if (r.build) b.push(buildTag(r));
+    if (!hasKit(r) && (!r.build || ['failed', 'needs_posting', 'waiting'].includes(r.build.s))) b.push(`<button class="btn" data-build="${esc(r.key)}">${r.build ? 'Try again' : 'Build now'}</button>`);
+    if (hasKit(r)) b.push(r.rev && r.rev.s === 'reviewing' ? `<span class="tag working"><span class="dot"></span>Reviewing · ${r.rev.m} min</span>` : `<button class="btn" data-review="${esc(r.key)}" title="Independent second check of the resume and answers against the posting and your profile">${r.review ? 'Review again' : 'Review kit'}</button>`);
+    if (hasKit(r)) b.push(r.cov && r.cov.s === 'writing' ? `<span class="tag working"><span class="dot"></span>Writing letter · ${r.cov.m} min</span>` : `<button class="btn" data-cover="${esc(r.key)}" title="Writes a short one-page letter in plain wording from your profile, saved with the kit. Only when you press this.">Cover letter</button>`);
+    if (hasKit(r) && !(r.build && r.build.s === 'building')) b.push(`<button class="btn" data-build="${esc(r.key)}" title="Builds the resume and answers again from your current profile and the saved posting. The kit being replaced is kept in a 'previous' folder inside the role's kit folder.">Rebuild kit</button>`);
+    b.push(`<button class="btn good" data-act="applied" data-key="${esc(r.key)}">Mark applied</button>`);
+    b.push(`<button class="btn bad" data-why-for="skipped" data-key="${esc(r.key)}">Not applying</button>`);
+  } else if (r.stage === 'gate_failed') {
+    b.push(gateButtons(r));
+  } else if (r.stage === 'applied') {
+    b.push(`<button class="btn" data-fu="${esc(r.key)}">Draft follow-up</button>`);
+    if (!compact) b.push(`<button class="btn warn" data-act="followed_up" data-key="${esc(r.key)}">Followed up</button><button class="btn good" data-act="callback" data-key="${esc(r.key)}">Got a call back</button><button class="btn good" data-act="interview" data-key="${esc(r.key)}">Interview</button><button class="btn bad" data-act="rejected" data-key="${esc(r.key)}">Rejected</button><button class="btn bad" data-why-for="withdrew" data-key="${esc(r.key)}">I withdrew</button><button class="btn" data-act="no_response" data-key="${esc(r.key)}">No response</button>`);
+  } else if (r.stage === 'interviewing' && !compact) {
+    b.push(`<button class="btn" data-fu="${esc(r.key)}">Draft note</button><button class="btn good" data-act="next_round" data-key="${esc(r.key)}">Next round</button><button class="btn hot" data-act="offer" data-key="${esc(r.key)}">Offer</button><button class="btn bad" data-act="rejected" data-key="${esc(r.key)}">Rejected</button><button class="btn bad" data-why-for="withdrew" data-key="${esc(r.key)}">I withdrew</button>`);
+  }
+  if (!compact) return b.join('');
+  b.push(`<button class="btn" data-open="${esc(r.key)}">Details</button>`);
+  return b.join('');
+}
+
+function todoHTML(t){
+  const r = t.key ? byKey(t.key) : null;
+  if (r && r.pend) return '';
+  if (pending['todo:' + t.id]) return '';
+  let acts = '';
+  if (t.type === 'interview' && t.prep) acts += `<button class="btn primary" data-prep="${esc(t.prep)}">Open prep</button>`;
+  if (r && ['apply','triage','followup'].includes(t.type)) acts += roleButtons(r, true);
+  else if (t.link) acts += `<a class="btn" href="${esc(t.link)}" target="_blank" rel="noopener">Open</a>`;
+  if (t.cal) acts += calBtn(t.cal);
+  acts += `<button class="btn" data-done="${esc(t.id)}">Done</button>`;
+  return `<div class="item" data-p="${esc(t.priority || 3)}"><div class="top"><span class="t">${esc(t.title)}</span>${t.tag ? `<span class="tag ${esc(t.tagClass || '')}">${esc(t.tag)}</span>` : ''}</div>
+    ${t.detail ? `<div class="d">${esc(t.detail)}</div>` : ''}<div class="actions">${acts}</div></div>`;
+}
+function calLink(c){
+  if (S.calendar === 'google') {
+    const g = d => String(d || '').replace(/[-:]/g, '').slice(0, 15);
+    return 'https://calendar.google.com/calendar/render?' + new URLSearchParams({action: 'TEMPLATE', text: c.title, dates: g(c.start) + '/' + g(c.end), details: c.body || ''}).toString();
+  }
+  const p = new URLSearchParams({path:'/calendar/action/compose', rru:'addevent', subject:c.title, startdt:c.start, enddt:c.end, body:c.body || ''});
+  return 'https://outlook.live.com/calendar/0/deeplink/compose?' + p.toString();
+}
+const calBtn = c => `<a class="btn" href="${esc(calLink(c))}" target="_blank" rel="noopener">Add to calendar</a>`;
+
+// ---- Needs attention: notes from runs, as {text, kind: 'action'|'fyi', key?, id?} or plain strings (older runs).
+let attnOpen = null;
+document.addEventListener('toggle', e => { if (e.target.id === 'gatebox') gateOpen = e.target.open; if (e.target.closest && e.target.closest('.attn')) attnOpen = e.target.open; }, true);
+const ACTION_RE =/\b(mark|save|confirm|check|reply|ask|send|attach|fix|update|review|decide|call|chase|press|open|delete)\b/i;
+const hash = s => { let h = 5381; for (const c of String(s)) h = ((h << 5) + h + c.charCodeAt(0)) | 0; return (h >>> 0).toString(36); };
+function noteRole(n){
+  if (n.key) return byKey(n.key);
+  const t = n.text.toLowerCase(); let best = null;
+  for (const r of roles()) { const c = String(r.company || '').toLowerCase(); if (c.length > 3 && t.includes(c) && (!best || c.length > best.company.length)) best = r; }
+  return best;
+}
+function attnNotes(){
+  return (TODAY?.notes || []).map(n => typeof n === 'string' ? {text: n} : {...n, text: String(n.text || '')}).filter(n => n.text)
+    .map(n => ({...n, id: n.id || 'note-' + hash(n.text), kind: n.kind || (ACTION_RE.test(n.text) ? 'action' : 'fyi')}))
+    .filter(n => !pending['todo:' + n.id]);
+}
+function attnRow(n){
+  const r = noteRole(n);
+  return `<div class="row"><div class="txt"><span class="kind ${n.kind === 'action' ? 'a' : 'f'}">${n.kind === 'action' ? 'To do' : 'FYI'}</span>${esc(n.text)}</div>
+    <div class="actions">${r ? `<button class="btn" data-open="${esc(r.key)}">Open role</button>` : ''}<button class="btn" data-done="${esc(n.id)}" title="Hide this until the next run">${n.kind === 'action' ? 'Done' : 'Dismiss'}</button></div></div>`;
+}
+// Missed-run check: the morning run should have written today's plan by 7:30; anything over 26 h old is stale.
+function staleMsg(){
+  if (!TODAY || !TODAY.generated) return '';
+  const gen = new Date(String(TODAY.generated).replace(' ', 'T'));
+  const hrs = (Date.now() - gen) / 36e5, now = new Date();
+  if (hrs > 26) return `No run has updated this page since ${TODAY.generated}. Open Command Center from the Start menu and check that your PC was on.`;
+  if ((now.getHours() > 7 || (now.getHours() === 7 && now.getMinutes() >= 30)) && TODAY.date && TODAY.date !== todayISO()) return `The morning run has not updated today's plan yet (last update ${TODAY.generated}). Open Command Center from the Start menu and check that your PC was on.`;
+  return '';
+}
+function renderAttention(){
+  const N = attnNotes(), A = N.filter(n => n.kind === 'action'), F = N.filter(n => n.kind !== 'action'), st = staleMsg();
+  $('banner').hidden = !N.length && !st;
+  $('banner').innerHTML = (st ? `<div class="banner" role="alert" style="background:var(--bad-bg);border-color:var(--bad);margin-bottom:10px"><b>Run missed:</b> ${esc(st)}</div>` : '') + (N.length ? `<div class="attn"role="region" aria-label="Needs attention"><div class="head"><h3>Needs attention<span class="c">${A.length} to do · ${F.length} FYI</span></h3></div>
+    ${A.map(attnRow).join('')}
+    ${F.length ? `<details${(attnOpen ?? !A.length) ? ' open' : ''}><summary>FYI from the run (${F.length})</summary>${F.map(attnRow).join('')}</details>` : ''}</div>` : '');
+}
+
+function renderToday(){
+  const h = new Date().getHours();
+  $('greet').textContent = (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + (S.owner ? ', ' + S.owner + '.' : '.');
+  if (!TODAY) return;
+  $('stamp').textContent = `${(TODAY.summary || '').replace(/ No AI configured\.$/, '')} Updated ${TODAY.generated || ''} (${TODAY.run || 'run'}).`;
+  renderBuilds();
+  renderAttention();
+  const R = roles(), W = TODAY.week || {}, gateTodo = R.filter(r => r.stage === 'gate_failed' && r.gate_review !== 'later').length;
+  const ready = R.filter(r => r.stage === 'ready').length, fresh = R.filter(r => r.stage === 'new').length;
+  const tw = (W.totals || {}), tg = (W.targets || {});
+  $('strip').innerHTML = [
+    ['Kits ready', ready, 'built, not applied', false, 'ready'],
+    ['New to triage', fresh, 'no kit yet', false, 'new'],
+    ['Applied this week', tw.applied ?? 0, `target ${tg.applied ?? 10}`, false, 'applied'],
+    ['Follow-ups due', (TODAY.todos || []).filter(t => t.type === 'followup' && !pending['todo:' + t.id]).length, 'today', true, 'todos'],
+    ['Interviews', R.filter(r => r.stage === 'interviewing').length, 'active', false, 'interviewing'],
+    ...(gateTodo ? [['Failed your rules', gateTodo, 'to review on Board', true, 'gate']] : []),
+  ].map(([k, v, s, a, go]) => `<button type="button" class="stat${a && v > 0 ? ' alert' : ''}" data-tile="${go}" aria-label="${esc(k)}: ${esc(v)}. Show them."><span class="k">${k}</span><span class="v">${esc(v)}</span><span class="s">${esc(s)}</span></button>`).join('');
+  const todos = (TODAY.todos || []).slice().sort((a, b) => (a.priority || 3) - (b.priority || 3)).map(todoHTML).filter(Boolean);
+  $('todo-h').textContent = `Today's to-do (${todos.length})`;
+  $('n-today').textContent = todos.length || '';
+  $('todos').innerHTML = todos.join('') || '<div class="empty">All done for today.</div>';
+  const tri = R.filter(r => r.stage === 'new').sort((a, b) => (isManual(b) - isManual(a)) || ((parseInt(b.fit) || 0) + (b.likelihood || 0)) - ((parseInt(a.fit) || 0) + (a.likelihood || 0)));
+  $('new-h').textContent = `New roles to triage (${tri.length})`;
+  $('triage').innerHTML = tri.map(r => `<div class="item" data-p="${parseInt(r.fit) >= 80 ? 1 : 3}"><div class="top"><span class="t">${esc(r.company)} · ${esc(r.title)}</span><span class="tag">${esc(r.fit || '?')}</span></div>
+    <div class="d">${esc([r.location, r.mode, r.pay].filter(Boolean).join(' · '))}${r.why ? ' — ' + esc(r.why) : ''}${r.likelihood > 0 ? ' · ' + esc(r.rank_why) : ''}</div><div class="actions">${roleButtons(r, true)}</div></div>`).join('') || '<div class="empty">No new roles waiting.</div>';
+  $('agenda').innerHTML = (TODAY.agenda || []).map(a => `<div class="item" data-p="${a.type === 'interview' ? 1 : 3}"><div class="top"><span class="t">${esc(a.title)}</span><span class="tag">${esc(a.when)}</span></div>${a.detail ? `<div class="d">${esc(a.detail)}</div>` : ''}${a.prep || a.cal ? `<div class="actions">${a.prep ? `<button class="btn" data-prep="${esc(a.prep)}">Open prep</button>` : ''}${a.cal ? calBtn(a.cal) : ''}</div>` : ''}</div>`).join('') || '<div class="empty">Nothing scheduled.</div>';
+  $('inbox').innerHTML = (TODAY.inbox || []).map(m => `<div class="item"><div class="top"><span class="t">${esc(m.subject)}</span><span class="tag">${esc(m.from)}</span></div>${m.why ? `<div class="d">${esc(m.why)}</div>` : ''}${m.link ? `<div class="actions"><a class="btn" href="${esc(m.link)}" target="_blank" rel="noopener">Open email</a></div>` : ''}</div>`).join('') || '<div class="empty">Inbox is clear.</div>';
+  $('loops').innerHTML = (TODAY.loops || []).filter(l => !pending['todo:loop-' + l.id]).map(l => `<div class="item"><div class="top"><span class="t">${esc(l.title)}</span>${l.due ? `<span class="tag">${esc(l.due)}</span>` : ''}</div>${l.detail ? `<div class="d">${esc(l.detail)}</div>` : ''}<div class="actions"><button class="btn" data-done="loop-${esc(l.id)}">Closed</button></div></div>`).join('') || '<div class="empty">No open loops.</div>';
+}
+
+function renderWeek(){
+  if (!TODAY) return;
+  const W = TODAY.week || {}, d = W.days || [], tg = W.targets || {}, tt = W.totals || {};
+  $('week-sub').textContent = W.label || '';
+  const T = [['Applications sent', tt.applied || 0, tg.applied || 10, ''], ['Recruiter / warm touches', tt.touches || 0, tg.touches || 5, ''], ['Replies', tt.replies || 0, tg.replies || 2, ''], ['Interviews', tt.interviews || 0, tg.interviews || 1, '']];
+  $('targets').innerHTML = T.map(([k, v, t]) => `<div class="target"><div class="row"><span>${k}</span><span style="font-family:var(--mono)">${v} / ${t}</span></div><div class="meter${v >= t ? ' done' : ''}"><i style="width:${Math.min(100, Math.round(100 * v / Math.max(1, t)))}%"></i></div></div>`).join('') + (W.minutes ? `<p class="note">Your time: about ${esc(W.minutes)} min/day (target under 20).</p>` : '');
+  const max = Math.max(1, ...d.map(x => (x.applied || 0) + (x.replies || 0) + (x.interviews || 0)));
+  $('bars').innerHTML = d.map(x => { const s = (n, c) => n ? `<span class="${c}" style="height:${Math.round(110 * n / max)}px" title="${n}"></span>` : ''; const tot = (x.applied || 0) + (x.replies || 0) + (x.interviews || 0);
+    return `<div class="bar"><b>${tot || ''}</b>${s(x.interviews, 'i')}${s(x.replies, 'r')}${s(x.applied, '')}</div>`; }).join('');
+  $('days').innerHTML = d.map(x => `<span>${esc(x.d)}</span>`).join('');
+  $('upcoming').innerHTML = (W.upcoming || TODAY.agenda || []).map(a => `<div class="item"><div class="top"><span class="t">${esc(a.title)}</span><span class="tag">${esc(a.when)}</span></div>${a.detail ? `<div class="d">${esc(a.detail)}</div>` : ''}</div>`).join('') || '<div class="empty">Nothing scheduled this week.</div>';
+}
+
+// Mode panel: the server (cc/modes.py) decides what is on or off; this only draws it.
+let MODE = null;
+function renderMode(){
+  const el = $('modepanel');
+  if (!MODE) { el.hidden = true; return; }
+  el.hidden = false;
+  if (MODE.error) { el.innerHTML = `<div class="row"><span class="badge">Mode</span><span>${esc(MODE.error)}</span></div>`; return; }
+  const list = (h, xs, f) => xs.length ? `<div><b>${h}</b><ul>${xs.map(f).join('')}</ul></div>` : '';
+  el.innerHTML = `<div class="row"><span class="badge">${esc(MODE.label)}</span>` +
+    `<button class="btn" id="mode-up">${MODE.next ? 'Upgrade to ' + esc(MODE.next.label) : 'Change mode'}</button>` + `</div>` +
+    (MODE.ai_missing ? `<div role="alert" style="color:var(--bad,#b00)"><b>No AI is connected yet.</b> ${esc(MODE.label)} mode needs one. <button class="btn" id="mode-ai">Connect an AI</button></div>` : '') +
+    (MODE.usage ? `<div>AI calls today: ${esc(MODE.usage.day_used)} of ${esc(MODE.usage.day_cap)} (${esc(MODE.usage.run_cap)} per run)</div>` : '') +
+    list('Switched off in this mode', MODE.off, x => `<li>${esc(x.label)}: ${esc(x.reason)}</li>`) +
+    list('Starts when you ask', MODE.on_request, x => `<li>${esc(x.label)} (${esc(x.how)})</li>`) +
+    list('Coming later', MODE.later, x => `<li>${esc(x.label)}</li>`) +
+    '';
+}
+async function pollMode(){
+  try { const r = await fetch('/mode', {cache: 'no-store'}); const m = await r.json(); if (JSON.stringify(m) !== JSON.stringify(MODE)) { MODE = m; renderMode(); } } catch (e) {}
+}
+document.addEventListener('click', e => { if (e.target.id === 'mode-up') wizModes(true); if (e.target.id === 'mode-ai') wizAi('modes'); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollMode(); });
+pollMode(); setInterval(() => { if (!document.hidden) pollMode(); }, 3000);
+
+document.addEventListener('input', e => { if (e.target.id === 'bq') renderBoard(); });
+document.addEventListener('toggle', e => { if (e.target.id === 'gatebox') gateOpen = e.target.open; }, true);
+const STAGES = [['ready','Kits ready'],['new','New'],['applied','Applied'],['interviewing','Interviewing'],['closed','Closed'],['skipped','Not applying'],['all','All']];
+let gateOpen = false;
+const gateButtons = r => `<button class="btn good" title="Moves it to New. The system learns this kind of role is fine." data-gate="gate_apply" data-key="${esc(r.key)}">Apply anyway</button>`
+  + (r.gate_review === 'later' ? '' : `<button class="btn" title="Keeps it here. Nothing is learned." data-gate="gate_later" data-key="${esc(r.key)}">Decide later</button>`)
+  + `<button class="btn bad" title="Closes it. You pick a reason; Not a match teaches the system." data-gate="gate_skip" data-key="${esc(r.key)}">Not applying</button>`;
+function gateAct(action, key){ if (action === 'gate_skip') return openReasons('gate_skip', key); record(action, key, null, false); }
+function renderBoard(){
+  const ALL = roles(), G = ALL.filter(r => r.stage === 'gate_failed'), R = ALL.filter(r => r.stage !== 'gate_failed');
+  $('n-board').textContent = R.length || '';
+  const todo = G.filter(r => r.gate_review !== 'later').length;
+  $('n-gate').hidden = !todo; $('n-gate').textContent = '⚑ ' + todo; $('n-gate').title = todo + ' role(s) failed your rules and need a look';
+  $('gate').innerHTML = G.length ? `<details id="gatebox"${gateOpen ? ' open' : ''}><summary>Failed your rules (${G.length}${todo ? ', ' + todo + ' to review' : ''})</summary>
+    <p class="note">These match your profile but fail a pay, location or work-authorization rule you set. Nothing here was skipped for you: you decide.</p>
+    ${G.map(r => `<div class="gitem" data-open="${esc(r.key)}" tabindex="0"><h3>${esc(r.title)}</h3>
+      <div class="meta">${esc([r.company, r.location, r.mode, r.pay].filter(Boolean).join(' · '))}</div>
+      <div class="why">Why: ${esc(r.gaps) || 'a rule you set'}${r.gate_review === 'later' ? ' · <em>decide later</em>' : ''}</div>
+      <div class="actions">${gateButtons(r)}</div></div>`).join('')}</details>` : '';
+  $('chips').innerHTML = STAGES.map(([s, l]) => `<button class="chip" data-filter="${s}" aria-pressed="${s === filter}">${l} (${R.filter(r => inView(r, s)).length})</button>`).join('');
+  const q = ($('bq').value || '').trim().toLowerCase();
+  const list = R.filter(r => q ? (r.company + ' ' + r.title).toLowerCase().includes(q) : inView(r, filter)).sort((a, b) => (isManual(b) - isManual(a)) || String(b.applied || b.found).localeCompare(String(a.applied || a.found)));
+  $('board').innerHTML = list.map(r => `<div class="card" data-stage="${esc(r.stage)}" data-open="${esc(r.key)}" tabindex="0"><span class="tag ${esc(r.stage)}" style="justify-self:start">${esc(r.pend ? LABEL[r.pend.action] + ' (syncs next run)' : r.status)}</span>${r.build ? `<span style="justify-self:start">${buildTag(r)}</span>` : ''}<h3>${esc(r.title)}</h3>
+    <div class="meta">${esc([r.company, r.location, r.mode].filter(Boolean).join(' · '))}</div><div class="meta">${esc([r.fit && 'Fit ' + r.fit, r.pay].filter(Boolean).join(' · '))}</div>
+    <div class="meta">${r.stage === 'applied' && r.applied ? days(r.applied) + ' days since applied' : 'Found ' + esc(r.found)}</div>${kitPath(r) ? `<div class="meta kitpath" title="Where this role's resume and kit are saved">Kit: <code>${esc(kitPath(r))}</code></div>` : (['applied', 'interviewing'].includes(r.stage) ? '<div class="meta kitpath">Kit: no folder found on this computer</div>' : '')}</div>`).join('') || '<div class="empty">No roles here.</div>';
+}
+
+function openRole(key){
+  const r = byKey(key); if (!r) return;
+  $('panel').innerHTML = `<button class="btn" id="close">Back</button>
+    <div><span class="tag ${esc(r.stage)}">${esc(r.status)}</span><h1 style="margin-top:8px">${esc(r.title)}</h1><div class="sub">${esc(r.company)}</div></div>
+    <div class="box"><h2>Actions</h2><div class="actions">${roleButtons(r, false)}<button class="btn warn" data-newtask="${esc(r.company)}">Add task</button>${r.stage === 'applied' || r.stage === 'interviewing' ? '' : ''}</div>
+      <p class="note">Apply opens the posting; the Chrome extension fills the form. Status buttons save here and reach the tracker on the next run.</p></div>
+    <div class="box"><h2>Details</h2><dl class="kv">
+      <dt>Fit</dt><dd>${esc(r.fit) || '—'}</dd><dt>Pay</dt><dd>${esc(r.pay) || 'not posted'}</dd>
+      <dt>Location</dt><dd>${esc([r.location, r.mode].filter(Boolean).join(' · ')) || '—'}</dd>
+      <dt>${r.stage === 'gate_failed' ? 'Why it failed your rules' : 'Gaps'}</dt><dd>${esc(r.gaps) || (r.stage === 'gate_failed' ? 'a rule you set' : '—')}</dd><dt>Warm path</dt><dd>${esc(r.warm) || '—'}</dd>
+      <dt>Kit</dt><dd>${kitWhere(r)}${kitButtons(r) ? `<div class="actions" style="margin-top:6px">${kitButtons(r)}</div>` : ''}</dd>
+      ${r.review ? `<dt>Review</dt><dd>${esc(reviewSummary(r.review))}${r.review.at ? ' · ' + esc(String(r.review.at).slice(0, 10)) : ''}${(r.review.notes || []).length ? `<ul>${[].concat(r.review.notes).slice(0, 6).map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}${reviewEdits(r)}<span class="note">Full review: Application_Kit.md, section "Independent review".</span></dd>` : ''}
+      ${r.link ? `<dt>Posting</dt><dd><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.link)}</a></dd>` : ''}<dt>Found</dt><dd>${esc(r.found)}${r.source ? ' via ' + esc(r.source) : ''}</dd>
+      ${r.applied ? `<dt>Applied</dt><dd>${esc(r.applied)}</dd>` : ''}${r.follow_up ? `<dt>Follow-up</dt><dd>${esc(r.follow_up)}</dd>` : ''}</dl></div>
+    ${r.stage === 'applied' || r.stage === 'interviewing' ? fuBox(r) : ''}`;
+  $('drawer').hidden = false; $('close').focus();
+}
+function fuBox(r){
+  return `<div class="box fu"><h2>Draft a follow-up</h2>
+    <div class="grid2"><label for="fu-to">Writing to<select id="fu-to"><option>Hiring manager</option><option>Recruiter</option><option>LinkedIn connection at the company</option></select></label>
+    <label for="fu-via">Sent as<select id="fu-via"><option value="linkedin">LinkedIn message</option><option value="note">Connection note (under 300 characters)</option><option value="email">Email</option></select></label></div>
+    <label for="fu-name">First name (optional)<input id="fu-name" autocomplete="off"></label>
+    <div class="actions"><button class="btn primary" id="fu-go" data-key="${esc(r.key)}">Write it</button><button class="btn" id="fu-copy" hidden>Copy</button></div>
+    <textarea id="fu-out" aria-label="Draft" hidden></textarea><p class="note" id="fu-note">Drafted from your verified facts. Nothing is sent.</p></div>`;
+}
+function openPrep(id){
+  const p = PREPS[id];
+  if (!p) { toast('Prep not loaded yet.'); return; }
+  $('panel').innerHTML = `<button class="btn" id="close">Back</button>
+    <div><span class="tag interviewing">Interview prep</span><h1 style="margin-top:8px">${esc(p.company)}</h1><div class="sub">${esc(p.title)}${p.when ? ' · ' + esc(p.when) : ''}</div></div>
+    ${(p.sections || []).map(s => `<div class="box"><h2>${esc(s.h)}</h2><ul>${(s.items || []).map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`).join('')}`;
+  $('drawer').hidden = false; $('close').focus();
+}
+function openReasons(kind, key){
+  const r = byKey(key); if (!r) return;
+  const list = kind === 'withdrew' ? WITHDRAW : SKIP;
+  const head = kind === 'withdrew' ? `Withdraw from ${esc(r.company)}?` : `Not applying to ${esc(r.company)}?`;
+  $('panel').innerHTML = `<button class="btn" id="close">Back</button><h1>${head}</h1><div class="sub">${esc(r.title)}</div>
+    <div class="box"><h2>Reason</h2><div class="actions">${list.map(s => `<button class="btn" data-why="${esc(s)}" data-kind="${kind}" data-key="${esc(key)}">${esc(s)}</button>`).join('')}</div>
+    <div class="why-other"><input id="why-text" maxlength="80" placeholder="Other reason"><button class="btn primary" data-why-other="1" data-kind="${kind}" data-key="${esc(key)}">Save</button></div>
+    <p class="note">Saved to the tracker on the next run.</p></div>`;
+  $('drawer').hidden = false; $('close').focus();
+}
+const closeDrawer = () => { $('drawer').hidden = true; $('ask-side').hidden = true; $('ask-side').innerHTML = ''; $('today-side').classList.remove('asking'); };
+
+// Kit builds and reviews run inside Command Center (POST /job); nothing opens an AI window.
+async function startJob(kind, key, posting){
+  const r = byKey(key); if (!r) return;
+  const id = kind + '-' + docId(key);
+  JOBS[id] = {...(JOBS[id] || {}), kind, key: docId(key), state: 'running', ts: new Date().toISOString(), reason: '', seen: false}; render();
+  try {
+    const res = await fetch('/job', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({kind, key: docId(key), posting: posting || ''})});
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || 'failed');
+    JOBS[id] = {...j, seen: false}; render();
+    if (j.state === 'needs_posting') openPosting(key, kind, j.reason);
+    else if (j.state === 'running') toast(`${kind === 'review' ? 'Reviewing the' : kind === 'cover' ? 'Writing the cover letter for the' : 'Building the'} ${r.company} ${kind === 'cover' ? 'role' : 'kit'}. Progress shows at the top of Today.`);
+  } catch (e) {
+    JOBS[id] = {kind, key: docId(key), state: 'failed', ts: new Date().toISOString(), reason: 'Could not reach Command Center. Is it still running?'}; render();
+  }
+}
+const buildNow = key => startJob('kit', key), reviewNow = key => startJob('review', key), coverNow = key => startJob('cover', key);
+function openAddRole(){
+  $('panel').innerHTML = `<button class="btn" id="close">Back</button><h1>Add a role manually</h1>
+    <div class="sub">Feel free to add a role that you found and are interested in applying to. It joins your Job board like any other role, you can request a kit and apply from there, and Command Center learns from your choice.</div>
+    <div class="box"><div class="form"><input id="ar-co" maxlength="200" placeholder="Company (required)"><input id="ar-title" maxlength="200" placeholder="Job title (required)">
+    <input id="ar-link" maxlength="2000" placeholder="Job link (optional if you paste the description)"></div>
+    <textarea id="ar-posting" rows="10" style="width:100%;margin-top:8px" maxlength="200000" placeholder="Job description (optional if you add a link)"></textarea>
+    <p class="note" id="ar-err" role="alert"></p>
+    <div class="actions"><button class="btn primary" data-addrole="1">Add and build kit</button><button class="btn" data-addrole="0">Add only</button></div>
+    <p class="note">Nothing is sent or submitted. The description stays on this computer. If a link cannot be read, you will be asked to paste the description.</p></div>`;
+  $('drawer').hidden = false; $('ar-co').focus();
+}
+async function addRole(build){
+  const v = id => $(id).value.trim(), err = m => { $('ar-err').textContent = m; };
+  if (!v('ar-co') || !v('ar-title')) return err('Enter the company and the job title.');
+  if (!v('ar-link') && !v('ar-posting')) return err('Add the job link, the job description, or both.');
+  err('Adding…');
+  try {
+    const res = await fetch('/add-role', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({company: v('ar-co'), title: v('ar-title'), link: v('ar-link'), posting: v('ar-posting'), build})});
+    const j = await res.json();
+    if (!res.ok) return err(j.error || 'Could not add the role.');
+    closeDrawer();
+    if (j.created === false && j.duplicate_of) return toast('That role is already on the board.');
+    toast(build ? 'Role added. Building the kit; progress shows at the top of Today.' : 'Role added to the Job board.');
+    if (j.job && j.job.state === 'needs_posting') setTimeout(() => { const r = ROLES.find(x => docId(x.key) === j.id); if (r) openPosting(r.key, 'kit', j.job.reason); }, 1200);
+  } catch (e) { err('Could not reach Command Center. Is it still running?'); }
+}
+function openPosting(key, kind, why){
+  const r = byKey(key); if (!r) return;
+  $('panel').innerHTML = `<button class="btn" id="close">Back</button><h1>Posting for ${esc(r.company)}</h1><div class="sub">${esc(r.title)}</div>
+    <div class="box"><h2>Paste the job posting</h2>${why ? `<p class="note"><b>${esc(why)}</b></p>` : ''}<p class="note">Copy the job description from the posting page and paste it here. It is only used for this ${kind === 'review' ? 'review' : 'kit'} and kept on this computer.</p>
+    <textarea id="posting-text" rows="12" style="width:100%" maxlength="200000" placeholder="Paste the job description here"></textarea>
+    <div class="actions" style="margin-top:8px"><button class="btn primary" data-posting-go="${esc(key)}" data-kind="${kind}">${kind === 'review' ? 'Start review' : kind === 'cover' ? 'Write letter' : 'Build kit'}</button></div></div>`;
+  $('drawer').hidden = false; $('posting-text').focus();
+}
+
+async function record(action, key, extra, quiet){
+  const r = ROLES.find(x => x.key === key);
+  const id = docId(key + '-' + action), ts = new Date().toISOString();
+  pending[key] = {key, action};
+  render();
+  if (!db) { toast('Saved on this screen only. Reload and try again.'); return; }
+  try {
+    const reason = extra?.reason;
+    const status = action === 'skipped' || action === 'withdrew' ? `${action} (${reason || 'no reason'})` : STATUS[action];
+    await db.collection('actions').doc(id).set({key, company: r?.company || '', title: r?.title || '', action, at: todayISO(), ts, ...(status ? {status} : {}), ...(extra || {})});
+    if (!quiet) toast(`${LABEL[action]}: ${r?.company || ''} saved`);
+  } catch (e) { toast('Could not save. Try again.'); }
+}
+async function markDone(id){
+  pending['todo:' + id] = {action: 'done'}; render();
+  if (!db) return;
+  try { await db.collection('actions').doc(docId('todo-' + id)).set({key: 'todo:' + id, action: 'done', at: todayISO()}); } catch (e) {}
+}
+
+const CAD = {recruiter:7, hiring:7, interviewer:21, warm:21};
+const addDays = (d, n) => { const x = new Date(String(d).slice(0,10) + 'T12:00:00'); x.setDate(x.getDate() + n); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
+function dueOf(c){
+  if (c.nudge_off) return {due: null, state: 'ok', label: 'Nudges off'};
+  if (!c.last_touch) return {due: null, state: 'over', label: 'Last touch unknown'};
+  let due = addDays(c.last_touch, c.cadence || CAD[c.type] || 21);
+  if (c.snooze_until && c.snooze_until > due) due = c.snooze_until;
+  const d = days(due); // positive = past due
+  return {due, state: d >= 0 ? 'over' : d >= -2 ? 'soon' : 'ok', label: d > 0 ? `Overdue ${d} d` : d === 0 ? 'Due today' : `Due ${due}`};
+}
+const peopleSorted = () => CONTACTS.filter(c => !c.archived).map(c => ({...c, ...dueOf(c)})).sort((a, b) => (!!a.nudge_off - !!b.nudge_off) || String(a.due || '0').localeCompare(String(b.due || '0')));
+function contactHTML(c){
+  const roleTxt = [c.company, c.role].filter(Boolean).join(' · ');
+  const tagc = c.state === 'over' ? 'over' : c.state === 'soon' ? 'soon' : 'okk';
+  return `<div class="item" data-due="${c.state}"><div class="who"><span class="t">${esc(c.name)}</span><span class="tag ${tagc}">${esc(c.label)}</span></div>
+    <div class="d">${esc(roleTxt)}${c.type ? ' · ' + esc(c.type) : ''}${c.channel ? ' · ' + esc(c.channel) : ''}${c.last_touch ? ' · last touch ' + esc(c.last_touch) : ''}</div>
+    ${c.notes ? `<div class="d">${esc(c.notes)}</div>` : ''}
+    <div class="actions"><button class="btn good" data-touch="${esc(c.id)}">Touched today</button><button class="btn" data-cdraft="${esc(c.id)}">Draft note</button>${c.nudge_off ? `<button class="btn" data-nudgeon="${esc(c.id)}">Resume nudges</button>` : `<button class="btn warn" data-snooze="${esc(c.id)}">Snooze 1 week</button><button class="btn" data-nudgeoff="${esc(c.id)}">Stop nudging</button>`}${c.email ? `<a class="btn" href="mailto:${esc(c.email)}">Email</a>` : ''}<button class="btn" data-newtask="${esc(c.name)}">Add task</button><button class="btn bad" data-archive="${esc(c.id)}">Archive</button></div>
+    <div class="cd" id="cd-${esc(c.id)}"></div></div>`;
+}
+function renderPeople(){
+  const P = peopleSorted(), due = P.filter(c => c.state !== 'ok');
+  $('n-people').textContent = due.length || '';
+  $('pp-due-h').textContent = `Nudges due (${due.length})`;
+  $('pp-due').innerHTML = due.map(contactHTML).join('') || '<div class="empty">Nobody needs a nudge today.</div>';
+  $('pp-all').innerHTML = P.filter(c => c.state === 'ok').map(contactHTML).join('') || '<div class="empty">Everyone else is up to date.</div>';
+  $('nudge-h').textContent = `Nudges due (${due.length})`;
+  $('nudges').innerHTML = due.slice(0, 5).map(c => `<div class="item" data-due="${c.state}"><div class="who"><span class="t">${esc(c.name)} · ${esc(c.company || '')}</span><span class="tag ${c.state === 'over' ? 'over' : 'soon'}">${esc(c.label)}</span></div><div class="actions"><button class="btn good" data-touch="${esc(c.id)}">Touched today</button><button class="btn warn" data-snooze="${esc(c.id)}">Snooze 1 week</button><button class="btn" data-nudgeoff="${esc(c.id)}" title="Keeps the contact, stops reminders">Stop nudging</button><button class="btn" data-view="people">Open</button></div></div>`).join('') + (due.length > 5 ? `<p class="note">${due.length - 5} more in People.</p>` : '') || '<div class="empty">No nudges due.</div>';
+  const R = roles();
+  $('targets-list').innerHTML = TARGETS.slice().sort((a, b) => (a.status === 'paused') - (b.status === 'paused') || String(a.company).localeCompare(b.company)).map(t => {
+    const co = String(t.company).toLowerCase().split(' ')[0];
+    const open = R.filter(r => String(r.company).toLowerCase().includes(co) && ['new','ready','applied','interviewing'].includes(r.stage));
+    const ppl = CONTACTS.filter(c => !c.archived && String(c.company || '').toLowerCase().includes(co));
+    const st = t.status === 'paused' ? 'skipped' : open.some(r => r.stage === 'interviewing') ? 'interviewing' : open.length ? 'applied' : 'ready';
+    return `<div class="item"><div class="who"><span class="t">${esc(t.company)}</span><span class="tag ${st}">${esc(t.status === 'paused' ? 'paused' : open.length + ' open role' + (open.length === 1 ? '' : 's'))}</span></div>
+      <div class="d">${esc(t.why || '')}${ppl.length ? ' · Contacts: ' + ppl.map(c => esc(c.name)).join(', ') : ' · No contact yet: find a warm path'}</div></div>`;
+  }).join('') || '<div class="empty">No target companies yet.</div>';
+  $('decisions').innerHTML = DECISIONS.slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).map(d => `<div class="item"><div class="who"><span class="t">${esc(d.decision)}</span><span class="tag">${esc(d.date || '')}</span></div>${d.why ? `<div class="d">${esc(d.why)}</div>` : ''}</div>`).join('') || '<div class="empty">No decisions logged.</div>';
+  const rv = REVIEW;
+  $('review').innerHTML = rv ? `<div class="box review"><div class="sub">${esc(rv.week || '')}</div>
+    ${[['Numbers', rv.numbers], ['What worked', rv.worked], ['Stop', rv.stop], ["Next week's 3 priorities", rv.priorities], ['Brand check (monthly)', rv.brand], ['Post idea', rv.post_idea && [].concat(rv.post_idea)]].filter(([, v]) => v && v.length).map(([h, v]) => `<h2>${h}</h2><ul>${v.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`).join('')}</div>` : '<div class="empty">The first review appears after the Friday morning run.</div>';
+}
+// Strict on purpose: stripping every non-digit turned "1e999" into 1999 and "120k" into 120. Unreadable input shows as no value.
+const num = v => { const m = /^(\d+(?:\.\d+)?|\.\d+)(k?)$/.exec(String(v ?? '').toLowerCase().replace(/^\s*[a-z]{3}\s+/, '').replace(/[$,\s]/g, '')); return m ? parseFloat(m[1]) * (m[2] ? 1000 : 1) : null; };
+const money = n => n == null ? '—' : '$' + Math.round(n).toLocaleString('en-CA');
+function offerCash(o){ // annual cash: perm = base x (1 + bonus%); contract = rate x 2080 h (stated assumption)
+  const b = num(o.base); if (b == null) return null;
+  return o.type === 'contract' ? b * 2080 : b * (1 + (num(o.bonus) || 0) / 100);
+}
+function renderOffers(){
+  const T = {perm: (S.offer && S.offer.perm) || [0, 0], contract: (S.offer && S.offer.contract) || [0, 0]};
+  const active = OFFERS.filter(o => !o.archived);
+  $('n-offers').textContent = active.length || '';
+  $('offers-list').innerHTML = active.sort((a, b) => (offerCash(b) || 0) - (offerCash(a) || 0)).map(o => {
+    const b = num(o.base), [floor, target] = T[o.type] || T.perm, walk = num(o.walk);
+    const st = b == null ? '' : b >= target ? 'okk' : b >= floor ? 'soon' : 'over';
+    const lbl = b == null ? 'no base yet' : b >= target ? 'at or above target' : b >= floor ? 'between floor and target' : 'below your floor';
+    const dl = o.deadline ? days(o.deadline) : null;
+    return `<div class="item" data-due="${st === 'okk' ? 'ok' : st === 'soon' ? 'soon' : st ? 'over' : ''}"><div class="who"><span class="t">${esc(o.company)} · ${esc(o.title || '')}</span><span class="tag ${st}">${esc(lbl)}</span></div>
+      <div class="d">${o.type === 'contract' ? 'Contract ' + esc(money(b)) + '/hr' : 'Base ' + esc(money(b))}${o.bonus ? ' · bonus ' + esc(o.bonus) + '%' : ''} · annual cash ${esc(money(offerCash(o)))}${o.type === 'contract' ? ' (at 1,900 h)' : ''}</div>
+      <div class="d">${esc([o.other, o.pto && 'Vacation ' + o.pto, o.mode, o.start && 'Start ' + o.start].filter(Boolean).join(' · '))}</div>
+      ${walk != null ? `<div class="d">Your walk-away: ${esc(money(walk))} ${b != null ? (b >= walk ? '(offer clears it)' : '(offer is below it)') : ''}</div>` : ''}
+      ${o.deadline ? `<div class="d"><span class="tag ${dl >= -1 ? 'over' : dl >= -3 ? 'soon' : ''}">Decide by ${esc(o.deadline)}</span></div>` : ''}
+      ${o.notes ? `<div class="d">${esc(o.notes)}</div>` : ''}
+      <div class="actions"><button class="btn bad" data-oarch="${esc(o.id)}">Remove</button></div></div>`;
+  }).join('') || '<div class="empty">No offers yet. When one arrives, add it here to compare.</div>';
+  const yr = new Date().getFullYear();
+  const old = REFS.length && REFS.every(r => (num(String(r.company).match(/(19|20)\d\d(?!.*(19|20)\d\d)/)?.[0]) || 0) < yr - 3);
+  $('refs-list').innerHTML = (old || !REFS.length ? `<div class="banner">${REFS.length ? 'All your references are more than 3 years old.' : 'No references recorded yet.'} Line up one recent reference (${esc(S.refs_hint || 'from your last two employers')}) before final rounds.</div>` : '') +
+    REFS.map(r => `<div class="item"><div class="who"><span class="t">${esc(r.name)}</span>${r.asked ? `<span class="tag">asked ${esc(r.asked)}</span>` : '<span class="tag soon">not asked yet</span>'}</div><div class="d">${esc([r.rel, r.company].filter(Boolean).join(' · '))}</div>
+    <div class="actions"><button class="btn good" data-rask="${esc(r.id)}">Asked today</button><button class="btn bad" data-rdel="${esc(r.id)}">Remove</button></div></div>`).join('');
+  $('admin-list').innerHTML = ADMIN.filter(a => !a.done).sort((a, b) => String(a.due || '9').localeCompare(String(b.due || '9'))).map(a => {
+    const d = a.due ? days(a.due) : null, st = d == null ? '' : d >= 0 ? 'over' : d >= -14 ? 'soon' : 'okk';
+    return `<div class="item" data-due="${st === 'okk' ? 'ok' : st}"><div class="who"><span class="t">${esc(a.title)}</span><span class="tag ${st}">${esc(a.due ? 'Due ' + a.due : 'No date yet')}</span></div>${a.detail ? `<div class="d">${esc(a.detail)}</div>` : ''}
+    <div class="actions"><button class="btn good" data-adone="${esc(a.id)}">Done</button></div></div>`; }).join('') || '<div class="empty">Nothing pending.</div>';
+}
+async function dbSet(col, id, data, msg){ if (!db) { toast('Saved on this screen only.'); return; } try { await db.collection(col).doc(id).set(data); toast(msg); } catch (e) { toast('Could not save.'); } }
+function saveOffer(){
+  const co = $('o-co').value.trim(); if (!co) { toast('Company first.'); return; }
+  const o = {id: docId(co + '-' + $('o-title').value), company: co, title: $('o-title').value.trim(), type: $('o-type').value, base: $('o-base').value.trim(), bonus: $('o-bonus').value.trim(), other: $('o-other').value.trim(), pto: $('o-pto').value.trim(), mode: $('o-mode').value.trim(), start: $('o-start').value.trim(), deadline: $('o-deadline').value, walk: $('o-walk').value.trim(), notes: $('o-notes').value.trim(), at: todayISO()};
+  OFFERS = OFFERS.filter(x => x.id !== o.id).concat(o); render();
+  ['o-co','o-title','o-base','o-bonus','o-other','o-pto','o-mode','o-start','o-deadline','o-walk','o-notes'].forEach(i => $(i).value = '');
+  dbSet('offers', o.id, o, 'Offer saved');
+}
+function saveRef(){
+  const n = $('r-name').value.trim(); if (!n) { toast('Name first.'); return; }
+  const r = {id: docId(n), name: n, rel: $('r-rel').value.trim(), company: $('r-co').value.trim(), asked: $('r-asked').value};
+  REFS = REFS.filter(x => x.id !== r.id).concat(r); render(); ['r-name','r-rel','r-co','r-asked'].forEach(i => $(i).value = '');
+  dbSet('references', r.id, r, 'Reference added');
+}
+function patch(list, col, id, data, msg){ const x = list.find(y => y.id === id); if (!x) return; Object.assign(x, data); render(); const {id: _, ...rest} = x; dbSet(col, id, rest, msg); }
+function taskState(t){ if (!t.due) return 'none'; const d = days(t.due); return d > 0 ? 'over' : d === 0 ? 'today' : 'later'; }
+function taskHTML(t){
+  const st = taskState(t), d = t.due ? days(t.due) : null;
+  const tag = st === 'over' ? `<span class="tag over">Overdue ${d} d</span>` : st === 'today' ? '<span class="tag soon">Today</span>' : t.due ? `<span class="tag okk">${esc(t.due)}</span>` : '';
+  return `<div class="item" data-due="${st === 'over' ? 'over' : st === 'today' ? 'soon' : 'ok'}" data-p="${esc(t.pri || 2)}"><div class="who"><span class="t">${t.pri == 1 ? '★ ' : ''}${esc(t.title)}</span>${tag}</div>
+    ${t.about ? `<div class="d">About: ${esc(t.about)}</div>` : ''}${t.by === 'claude' ? '<div class="d">Added by the assistant</div>' : ''}
+    <div class="actions"><button class="btn good" data-tdone="${esc(t.id)}">Done</button><button class="btn warn" data-tsnooze="${esc(t.id)}">Tomorrow</button><button class="btn bad" data-tdel="${esc(t.id)}">Delete</button></div></div>`;
+}
+function renderTasks(){
+  const open = TASKS.filter(t => !t.done).sort((a, b) => String(a.due || '9999').localeCompare(String(b.due || '9999')) || (a.pri || 2) - (b.pri || 2));
+  const now = open.filter(t => ['over','today'].includes(taskState(t)));
+  $('n-tasks').textContent = now.length || '';
+  $('tasks-now').innerHTML = now.map(taskHTML).join('') || '<div class="empty">Nothing due.</div>';
+  $('tasks-later').innerHTML = open.filter(t => taskState(t) === 'later').map(taskHTML).join('') || '<div class="empty">Nothing scheduled.</div>';
+  $('tasks-nodate').innerHTML = open.filter(t => !t.due).map(taskHTML).join('') || '<div class="empty">None.</div>';
+  $('mytasks-h').textContent = `My tasks (${now.length})`;
+  $('mytasks').innerHTML = now.map(taskHTML).join('') || '<div class="empty">No tasks due today. Add one in Tasks.</div>';
+}
+function addTask(){
+  const title = $('t-title').value.trim(); if (!title) { toast('Describe the task first.'); return; }
+  const t = {id: docId(title + '-' + Date.now()), title, due: $('t-due').value || null, pri: Number($('t-pri').value), about: $('t-about').value.trim(), at: todayISO(), by: 'owner'};
+  TASKS.push(t); render(); ['t-title','t-due','t-about'].forEach(i => $(i).value = '');
+  const {id, ...rest} = t; dbSet('tasks', id, rest, 'Task added');
+}
+function newTaskFor(about){ closeDrawer(); show('tasks'); $('t-about').value = about; $('t-due').value = addDays(todayISO(), 1); $('t-title').focus(); }
+
+// ---- Assistant: Ask = instant answer from dashboard data; Do = queued for the background assistant session
+function openChat(){
+  const side = matchMedia('(min-width:1000px)').matches && !$('view-today').hidden;  // beside the improvements, not over the page
+  if (side) $('panel').innerHTML = '';
+  (side ? $('ask-side') : $('panel')).innerHTML = `<button class="btn" id="close">${side ? 'Close' : 'Back'}</button><h1>Ask</h1>
+    <div class="sub"><b>Ask</b> answers from your dashboard data and changes nothing. To build a kit, use <b>Build now</b> on the role.</div>
+    <div class="box chat"><textarea id="q" placeholder="e.g. What is overdue this week? / Which roles have no kit yet?"></textarea>
+    <div class="actions"><button class="btn primary" id="ask">Ask</button></div>
+    <div class="msg" id="ans" hidden></div></div>`;
+  if (side) { $('ask-side').hidden = false; $('today-side').classList.add('asking'); } else $('drawer').hidden = false;
+  renderReqs(); $('q').focus();
+  askNotice();
+}
+// Ask needs an AI to answer in plain language; say so up front instead of after a failed question.
+async function askNotice(){
+  let T = ''; try { T = (await (await fetch('/wizard')).json()).ask_note || ''; } catch (e) { return; }
+  const h = document.querySelector('#ask-side:not([hidden]) h1, #panel h1'); if (!T || !h) return;
+  const n = document.createElement('div'); n.className = 'msg'; n.id = 'ask-note'; n.style.fontWeight = '600'; n.textContent = T; h.after(n);
+}
+function context(){
+  const R = roles().filter(r => r.stage !== 'skipped').slice(0, 80).map(r => `${r.company} | ${r.title} | ${r.status} | fit ${r.fit || '?'} | ${r.applied ? 'applied ' + r.applied : 'found ' + r.found}`);
+  const T = TASKS.filter(t => !t.done).map(t => `${t.title} | due ${t.due || '-'}${t.about ? ' | ' + t.about : ''}`);
+  const P = peopleSorted().map(c => `${c.name} (${c.company}) ${c.label}`);
+  return `Today ${todayISO()}. Plan: ${TODAY?.summary || ''}\nTo-dos: ${(TODAY?.todos || []).map(t => t.title).join('; ')}\nAgenda: ${(TODAY?.agenda || []).map(a => a.title + ' ' + a.when).join('; ')}\nRoles:\n${R.join('\n')}\nTasks:\n${T.join('\n')}\nPeople:\n${P.join('\n')}\nDecisions: ${DECISIONS.map(d => d.decision).join('; ')}`.slice(0, 14000);
+}
+async function ask(){
+  const q = $('q').value.trim(), out = $('ans'); if (!q) return;
+  if (askSvc) {
+    out.hidden = false; out.textContent = 'Thinking...'; $('ask').disabled = true;
+    try {
+      const r = await askSvc.ask(q, context().slice(0, 30000));
+      out.textContent = r.answer || (r.status === 'waiting' ? 'Waiting for a pasted answer. See the AI cards.' : r.reason || r.error || 'Could not answer right now.');
+    } catch (e) { out.textContent = 'Could not answer right now.'; }
+    finally { $('ask').disabled = false; }
+    return;
+  }
+  if (!sample) { out.hidden = false; out.textContent = 'Instant answers are not available in this view. Use Do instead.'; return; }
+  out.hidden = false; out.textContent = 'Thinking...'; $('ask').disabled = true;
+  const prompt = `You are ${S.owner || 'the user'}'s job-search chief of staff. Answer from the dashboard data below only; say plainly when the data does not cover it. Be brief. If they ask you to change something, say to press "Do" instead. ${VOICE}\n\n${context()}\n\nQuestion: ${q}`;
+  try { const r = await sample(prompt, {onText: ({text}) => { out.textContent = text; }, modelTier: 'default', cache: false}); out.textContent = r.text.trim(); }
+  catch (e) { out.textContent = 'Could not answer right now.'; }
+  finally { $('ask').disabled = false; }
+}
+function renderReqs(){
+  const box = $('reqs'); if (!box) return;
+  const L = REQS.slice().sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 12);
+  const cls = s => s === 'done' ? 'done' : s === 'working' ? 'working' : s === 'queued' ? 'queued' : 'needs';
+  box.innerHTML = L.map(r => `<div class="item"><div class="who"><span class="t">${esc(r.text).slice(0, 160)}</span><span class="tag ${cls(r.status)}">${esc(r.status || 'queued')}</span></div>
+    ${r.answer ? `<div class="msg">${esc(r.answer)}</div>` : ''}${r.changed && r.changed.length ? `<div class="d">Changed: ${esc([].concat(r.changed).join('; '))}</div>` : ''}<div class="d">${esc(String(r.at).slice(0, 16).replace('T', ' '))}</div></div>`).join('') || '<div class="empty">No requests yet.</div>';
+}
+async function updContact(id, data, msg){
+  const c = CONTACTS.find(x => x.id === id); if (!c) return;
+  Object.assign(c, data); render();
+  if (!db) { toast('Saved on this screen only.'); return; }
+  try { await db.collection('contacts').doc(id).set({...c, ...data}); toast(msg); } catch (e) { toast('Could not save.'); }
+}
+async function addContact(){
+  const name = $('c-name').value.trim(); if (!name) { toast('Name first.'); return; }
+  const c = {id: docId(name + '-' + ($('c-co').value || '')), name, company: $('c-co').value.trim(), type: $('c-type').value, channel: $('c-ch').value, notes: $('c-note').value.trim(), last_touch: todayISO(), cadence: CAD[$('c-type').value]};
+  CONTACTS.push(c); render(); ['c-name','c-co','c-note'].forEach(i => $(i).value = '');
+  if (db) { try { await db.collection('contacts').doc(c.id).set(c); toast('Contact added'); } catch (e) { toast('Could not save.'); } }
+}
+async function draftContact(id){
+  const c = CONTACTS.find(x => x.id === id); if (!c) return;
+  const box = $('cd-' + id);
+  if (!sample) { box.innerHTML = `<p class="note">Drafting needs an AI connected. Open Settings to connect one.</p>`; return; }
+  box.innerHTML = '<textarea class="fu-ta" style="width:100%;min-height:120px;font:inherit;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)" aria-label="Draft"></textarea><p class="note">Writing...</p>';
+  const ta = box.querySelector('textarea'), note = box.querySelector('.note');
+  const kind = c.type === 'warm' ? 'a short no-ask check-in that keeps the relationship warm (no request, one useful line about his search or their company)' : 'a short, polite status follow-up with one clear ask';
+  const prompt = `${VOICE}\n${FACTS}\nWrite ${kind} to ${c.name}${c.company ? ' at ' + c.company : ''} (${c.type || 'contact'}). Context: ${c.notes || 'none'}. Last contact ${c.last_touch || 'unknown'}. ${c.channel === 'linkedin' ? 'LinkedIn message, 40-80 words.' : 'Email: first line "Subject: ...", body 60-100 words.'} Output only the message.`;
+  try { const r = await sample(prompt, {onText: ({text}) => { ta.value = text; }, modelTier: 'quick', cache: false}); ta.value = r.text.trim(); note.textContent = 'Edit, copy and send it yourself, then press Touched today.'; }
+  catch (e) { note.textContent = 'Could not write a draft right now.'; }
+}
+
+// Voice and facts come from the private settings doc (config/settings); the template ships with neutral defaults.
+const DEFAULT_VOICE = `Plain, short, declarative sentences. No flattery, no exclamation marks, one clear ask. Use only the facts given; never invent numbers, names, or experience.`;
+let VOICE = DEFAULT_VOICE, FACTS = '';
+async function draft(key){
+  const r = byKey(key); if (!r) return;
+  const out = $('fu-out'), note = $('fu-note');
+  if (!sample) { note.textContent = 'Drafting needs an AI connected. Open Settings to connect one.'; return; }
+  const to = $('fu-to').value, via = $('fu-via').value, name = $('fu-name').value.trim();
+  const len = via === 'note' ? 'Under 280 characters.' : via === 'email' ? 'Email: first line "Subject: ...", body 80-120 words.' : 'LinkedIn message, 50-90 words.';
+  const prompt = `${VOICE}\n${FACTS}\nRole: ${r.title} at ${r.company}. Status: ${r.status}. ${r.applied ? 'Applied ' + r.applied + ' (' + days(r.applied) + ' days ago).' : ''}\nWrite a follow-up to ${name || 'the person'} (${to}). ${len} Output only the message.`;
+  $('fu-go').disabled = true; out.hidden = false; out.value = ''; note.textContent = 'Writing...';
+  try { const res = await sample(prompt, {onText: ({text}) => { out.value = text; }, modelTier: 'quick', cache: false}); out.value = res.text.trim(); $('fu-copy').hidden = false; note.textContent = 'Edit, then copy and send it yourself.'; }
+  catch (e) { note.textContent = 'Could not write a draft right now.'; }
+  finally { $('fu-go').disabled = false; }
+}
+function toast(t){ const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2600); }
+function render(){ renderToday(); renderWeek(); renderBoard(); renderPeople(); renderOffers(); renderTasks(); renderReqs(); }
+function openTile(go){
+  if (go === 'todos') { show('today'); $('todo-h').scrollIntoView({block: 'start'}); return; }
+  show('board');
+  if (go === 'gate') { gateOpen = true; renderBoard(); $('gate').scrollIntoView({block: 'start'}); return; }
+  filter = go; renderBoard();
+}
+function show(v){
+  ['today','week','board','people','tasks','offers','learning'].forEach(x => { $('view-' + x).hidden = x !== v; const b = $('nav-' + x); if (x === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  if (v === 'learning') loadLearning();
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-tile],#addrole-open,[data-addrole],[data-posting-go],[data-posting],[data-dlurl],#t-add,#fab,#ask,[data-gate],[data-learned],[data-learned-list],[data-learned-levels],[data-newtask],[data-tdone],[data-tsnooze],[data-tdel],#o-save,#r-save,[data-applyedit],[data-oarch],[data-rask],[data-rdel],[data-adone],[data-touch],[data-snooze],[data-archive],[data-nudgeoff],[data-nudgeon],[data-bseen],[data-rseen],[data-dl],[data-openkit],[data-review],[data-cover],[data-cseen],[data-cdraft],#c-add,[data-view],[data-act],[data-open],[data-filter],[data-why-for],[data-why],[data-why-other],[data-build],[data-done],[data-prep],[data-fu],#close,#fu-go,#fu-copy');
+  if (!t) { if (e.target === $('drawer')) closeDrawer(); return; }
+  if (t.id === 'addrole-open') return openAddRole();
+  if (t.dataset.addrole !== undefined) return addRole(t.dataset.addrole === '1');
+  if (t.dataset.tile) return openTile(t.dataset.tile);
+  if (t.dataset.view) return show(t.dataset.view);
+  if (t.dataset.gate) { e.stopPropagation(); return gateAct(t.dataset.gate, t.dataset.key); }
+  if (t.dataset.touch) return updContact(t.dataset.touch, {last_touch: todayISO(), snooze_until: null}, 'Marked touched today');
+  if (t.dataset.snooze) return updContact(t.dataset.snooze, {snooze_until: addDays(todayISO(), 7)}, 'Snoozed 1 week');
+  if (t.dataset.nudgeoff) return updContact(t.dataset.nudgeoff, {nudge_off: true}, 'Nudges off. Resume any time in People.');
+  if (t.dataset.nudgeon) return updContact(t.dataset.nudgeon, {nudge_off: false, last_touch: todayISO()}, 'Nudges back on');
+  if (t.dataset.openkit !== undefined) return openKitFolder(t.dataset.openkit);
+  if (t.dataset.dl) return downloadKit(t.dataset.dl);
+  if (t.dataset.dlurl) return downloadKitUrl(t.dataset.dlurl, t.dataset.name);
+  if (t.dataset.postingGo) { const v = $('posting-text').value.trim(); if (!v) { toast('Paste the posting text first.'); return; } closeDrawer(); return startJob(t.dataset.kind, t.dataset.postingGo, v); }
+  if (t.dataset.posting) return openPosting(t.dataset.posting, t.dataset.kind);
+  if (t.dataset.bseen) return buildSeen(t.dataset.bseen);
+  if (t.dataset.rseen) return reviewSeen(t.dataset.rseen);
+  if (t.dataset.cseen) return coverSeen(t.dataset.cseen);
+  if (t.dataset.cover) { e.stopPropagation(); return coverNow(t.dataset.cover); }
+  if (t.dataset.applyedit) { e.stopPropagation(); return applyEdit(t.dataset.applyedit, Number(t.dataset.i)); }
+  if (t.dataset.review) { e.stopPropagation(); return reviewNow(t.dataset.review); }
+  if (t.dataset.archive) return updContact(t.dataset.archive, {archived: true}, 'Archived');
+  if (t.dataset.cdraft) return draftContact(t.dataset.cdraft);
+  if (t.id === 'c-add') return addContact();
+  if (t.id === 't-add') return addTask();
+  if (t.id === 'fab') return openChat();
+  if (t.id === 'ask') return ask();
+  if (t.dataset.newtask) return newTaskFor(t.dataset.newtask);
+  if (t.dataset.tdone) return patch(TASKS, 'tasks', t.dataset.tdone, {done: true, done_at: todayISO()}, 'Done');
+  if (t.dataset.tsnooze) return patch(TASKS, 'tasks', t.dataset.tsnooze, {due: addDays(todayISO(), 1)}, 'Moved to tomorrow');
+  if (t.dataset.tdel) { TASKS = TASKS.filter(x => x.id !== t.dataset.tdel); render(); if (db) db.collection('tasks').doc(t.dataset.tdel).delete().catch(() => {}); return; }
+  if (t.id === 'o-save') return saveOffer();
+  if (t.id === 'r-save') return saveRef();
+  if (t.dataset.oarch) return patch(OFFERS, 'offers', t.dataset.oarch, {archived: true}, 'Removed');
+  if (t.dataset.rask) return patch(REFS, 'references', t.dataset.rask, {asked: todayISO()}, 'Marked asked');
+  if (t.dataset.rdel) { REFS = REFS.filter(r => r.id !== t.dataset.rdel); render(); if (db) db.collection('references').doc(t.dataset.rdel).delete().catch(() => {}); return; }
+  if (t.dataset.adone) return patch(ADMIN, 'admin', t.dataset.adone, {done: true, done_at: todayISO()}, 'Done');
+  if (t.id === 'close') return closeDrawer();
+  if (t.id === 'fu-go') return draft(t.dataset.key);
+  if (t.id === 'fu-copy') { const v = $('fu-out').value; navigator.clipboard?.writeText(v).then(() => toast('Copied'), () => { $('fu-out').select(); toast('Selected. Press Ctrl+C.'); }); return; }
+  if (t.dataset.filter) { filter = t.dataset.filter; return renderBoard(); }
+  if (t.dataset.learned) { e.stopPropagation(); learnedPost({action: t.dataset.learned, term: t.dataset.term}).then(j => j && loadLearned()); return; }
+  if (t.dataset.learnedLevels) { e.stopPropagation(); const items = t.dataset.learnedLevels === 'suggest' ? SUGGESTED_LEVELS : [...document.querySelectorAll('.lw-level:checked')].map(x => x.value); learnedPost({action: 'levels', items}).then(j => { if (j) { toast('Saved'); loadLearned(); } }); return; }
+  if (t.dataset.learnedList) { e.stopPropagation(); const k = t.dataset.learnedList; learnedPost({action: k, items: $('lw-' + k).value.split(',')}).then(j => { if (j) { toast('Saved'); loadLearned(); } }); return; }
+  if (t.dataset.whyFor) { e.stopPropagation(); return openReasons(t.dataset.whyFor, t.dataset.key); }
+  if (t.dataset.why) { closeDrawer(); return record(t.dataset.kind, t.dataset.key, {reason: t.dataset.why}); }
+  if (t.dataset.whyOther) { const w = ($('why-text').value || '').trim(); if (!w) { toast('Type a reason first.'); return; } closeDrawer(); return record(t.dataset.kind, t.dataset.key, {reason: w}); }
+  if (t.dataset.build) return buildNow(t.dataset.build);
+  if (t.dataset.done) return markDone(t.dataset.done);
+  if (t.dataset.prep) return openPrep(t.dataset.prep);
+  if (t.dataset.fu) { openRole(t.dataset.fu); return; }
+  if (t.dataset.act) { e.stopPropagation(); closeDrawer(); return record(t.dataset.act, t.dataset.key); }
+  if (t.dataset.open) return openRole(t.dataset.open);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('drawer').hidden) closeDrawer();
+  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.open) e.target.click();
+});
+show('today'); render(); renderCoach();
+// Landing rule: a brand-new data folder opens on the Welcome screen (own data or demo); with demo data loaded the
+// page opens on Today; otherwise an incomplete profile opens on the profile page and a complete one on Today.
+(async () => {
+  const pct = await refreshProfileBar();
+  let st = {}; try { st = await (await fetch('/wizard')).json(); } catch (e) {}
+  if (st.fresh) wizOpen().catch(() => {});
+  else if (!st.demo && pct < 100) wizProfile().catch(() => {});
+})();
+
+(async () => {
+  db = await window.claude?.use?.('db').catch?.(() => null) ?? null;
+  window.claude?.use?.('ask')?.then?.(a => {
+    askSvc = a;
+    // Drafts go through the same Ask service; it returns {answer} or a reason when no AI is available.
+    sample = async prompt => { const r = await a.ask(prompt, ''); if (!r.answer) throw new Error(r.reason || 'no answer'); return {text: r.answer}; };
+  }, () => {});
+  window.claude?.use?.('downloads')?.then?.(d => { downloads = d; render(); }, () => {});
+  if (!db) { $('stamp').textContent = 'Live data is not available. Is Command Center still running?'; return; }
+  const fail = () => { $('stamp').textContent = 'Could not load live data. Reload the page.'; };
+  db.doc('board/roles').onSnapshot(s => { ROLES = (s.exists && s.data().roles) || []; noticeKits(); render(); }, fail);
+  db.doc('board/today').onSnapshot(s => { TODAY = s.exists ? s.data() : null; if (!TODAY) $('stamp').textContent = 'No plan yet. The morning run fills this page.'; render(); }, fail);
+  db.collection('contacts').onSnapshot(s => { CONTACTS = s.docs.map(d => ({id: d.id, ...d.data()})); render(); }, () => {});
+  db.collection('targets').onSnapshot(s => { TARGETS = s.docs.map(d => ({id: d.id, ...d.data()})); render(); }, () => {});
+  db.collection('decisions').onSnapshot(s => { DECISIONS = s.docs.map(d => ({id: d.id, ...d.data()})); render(); }, () => {});
+  db.collection('tasks').onSnapshot(s => { TASKS = s.docs.map(d => ({id: d.id, ...d.data()})); render(); }, () => {});
+  db.collection('requests').onSnapshot(s => { REQS = s.docs.map(d => ({id: d.id, ...d.data()})); renderReqs(); }, () => {});
+  db.collection('offers').onSnapshot(s => { OFFERS = s.docs.map(d => ({id: d.id, ...d.data()})); render(); }, () => {});
+  db.collection('references').onSnapshot(s => { REFS = s.docs.map(d => ({id: d.id, ...d.data()})); render(); }, () => {});
+  db.collection('admin').onSnapshot(s => { ADMIN = s.docs.map(d => ({id: d.id, ...d.data()})); render(); }, () => {});
+  db.doc('reviews/latest').onSnapshot(s => { REVIEW = s.exists ? s.data() : null; render(); }, () => {});
+  db.collection('kitreviews').onSnapshot(s => { KREV = {}; s.docs.forEach(d => { const x = d.data(); if (x && x.key) KREV[x.key] = x; }); render(); }, () => {});
+  db.collection('kitindex').onSnapshot(s => { KIDX = {}; s.docs.forEach(d => { const x = d.data(); if (x && x.key) KIDX[x.key] = x; }); render(); }, () => {});
+  db.doc('config/settings').onSnapshot(x => applySettings(x.exists ? x.data() : {}), () => {});
+  db.collection('preps').onSnapshot(s => { PREPS = {}; s.docs.forEach(d => { PREPS[d.id] = d.data(); }); }, () => {});
+  db.collection('actions').onSnapshot(s => { pending = {}; const when = x => String(x.ts || x.at || ''); s.docs.forEach(d => { const x = d.data(); if (!x || !x.key) return; if (!pending[x.key] || when(x) >= when(pending[x.key])) pending[x.key] = x; }); render(); }, () => {});
+  db.collection('jobs').onSnapshot(s => { JOBS = {}; s.docs.forEach(d => { JOBS[d.id] = d.data(); }); render(); }, () => {});
+  setInterval(() => { if (Object.keys(JOBS).length) render(); }, 60000);
+})();
+
+// Setup wizard (DESIGN 7). Steps 0-3 so far; steps 4-7 land in later PRs.
+async function wizCall(path, body){
+  const r = await fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})});
+  const j = await r.json().catch(() => ({error: 'Unreadable reply'}));
+  if (!r.ok) throw new Error(j.error || 'Something went wrong');
+  if (/^\/wizard\/(profile|resume|rules)$/.test(path)) refreshProfileBar();
+  return j;
+}
+async function refreshProfileBar(){
+  let st; try { st = await (await fetch('/profile/status')).json(); } catch (e) { return 100; }
+  if (typeof st.percent !== 'number') return 100;
+  const bar = $('pbar'), chip = $('n-profile'), left = st.missing.slice(0, 4).map(m => esc(m.label)).join(', ');
+  const pg = $('wiz-pct');
+  if (pg) pg.innerHTML = '<div style="height:10px;background:var(--line);border-radius:5px"><div style="height:10px;width:' + st.percent + '%;background:var(--ok);border-radius:5px"></div></div><strong>' + st.percent + '% complete</strong>'
+    + (st.missing.length ? '<div><small>Still needed: ' + st.missing.map(m => esc(m.label)).join(', ') + '.</small></div>' : '<div><small>Every required answer is in.</small></div>');
+  let demo = false; try { demo = !!(await (await fetch('/wizard')).json()).demo; } catch (e) {}
+  const np = $('nav-profile'); if (np) np.hidden = demo;
+  if (demo) {
+    bar.hidden = false; chip.hidden = true;
+    bar.innerHTML = '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><strong>You are looking at made-up demo data</strong>'
+      + '<button class="btn primary" data-wiz="open">Done looking</button></div>'
+      + '<small>Nothing here is yours. When you are ready, press Done looking. The demo data is removed and you set up your own.</small>';
+    return st.percent;
+  }
+  bar.hidden = st.percent >= 100; chip.hidden = st.percent >= 100; chip.textContent = st.percent + '%';
+  bar.innerHTML = '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><strong>Your profile is ' + st.percent + '% complete</strong>'
+    + '<button class="btn primary" data-wiz="gprofile">Finish my profile</button></div>'
+    + '<div style="height:8px;background:var(--line);border-radius:4px"><div style="height:8px;width:' + st.percent + '%;background:var(--ok);border-radius:4px"></div></div>'
+    + '<small>Still needed: ' + left + (st.missing.length > 4 ? ' and ' + (st.missing.length - 4) + ' more' : '') + '. Scoring and resumes are only as good as these answers.</small>';
+  return st.percent;
+}
+const SEV = {high: ['Fix first', 'over'], medium: ['Worth fixing', 'soon'], low: ['Minor', 'okk']};
+function bars(rows, label){
+  const max = Math.max(1, ...rows.map(r => r.n));
+  return '<div><small>' + esc(label) + '</small><div style="display:flex;gap:4px;align-items:end;height:64px">' + rows.map(r =>
+    '<div title="' + esc(r.week) + ': ' + r.n + '" style="flex:1;background:var(--accent);border-radius:3px 3px 0 0;height:' + Math.max(2, Math.round(60 * r.n / max)) + 'px"></div>').join('')
+    + '</div><small style="opacity:.7">last ' + rows.length + ' weeks, oldest to newest</small></div>';
+}
+function breakdownTable(title, g){
+  const rows = Object.entries(g).sort((a, b) => b[1].applied - a[1].applied);
+  if (!rows.length) return '';
+  return '<div><h3>' + esc(title) + '</h3><table style="width:100%;border-collapse:collapse"><tr><th align="left">Group</th><th>Applied</th><th>Replies</th><th>Interviews</th><th>No reply</th></tr>'
+    + rows.map(([k, v]) => '<tr><td>' + esc(k) + '</td><td align="center">' + v.applied + '</td><td align="center">' + v.responded + '</td><td align="center">' + v.positive + '</td><td align="center">' + v.ghosted + '</td></tr>').join('') + '</table></div>';
+}
+async function loadLearning(){
+  const box = $('learn-body'); box.textContent = 'Reading your history...';
+  let d; try { d = await (await fetch('/learning')).json(); } catch (e) { box.textContent = 'Learning needs the local app (not available in this view).'; return; }
+  if (!d.summary) { box.textContent = 'Could not read your history.'; return; }
+  const s = d.summary, pct = v => v == null ? 'n/a' : v + '%';
+  const stat = (k, v, sub) => '<div class="stat"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div>' + (sub ? '<div class="s">' + esc(sub) + '</div>' : '') + '</div>';
+  $('learn-sub').textContent = d.enough_data ? 'Based on ' + s.applied + ' applications and everything else the app tracks.' : 'Early days: ' + s.applied + ' applications so far. Comparisons switch on at 10.';
+  box.innerHTML = '<div style="display:grid;gap:22px"><div class="coach" id="coach-l"></div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">' + stat('Roles found', s.found) + stat('Applied', s.applied, s.skipped + ' skipped')
+    + stat('Interviewing', s.interviewing, s.offers + ' offers') + stat('Reply rate', pct(s.response_rate), s.rejected + ' rejected') + stat('Interview rate', pct(s.interview_rate), s.no_response + ' closed, no reply') + '</div>'
+    + '<section><h2>What needs improvement</h2><div class="list">' + (d.areas.length ? d.areas.map(a => {
+        const [lab, cls] = SEV[a.severity] || SEV.low;
+        return '<div class="item"><div class="top"><span class="t">' + esc(a.title) + '</span><span class="tag ' + cls + '">' + lab + '</span></div>'
+          + '<div class="d">' + esc(a.group) + '</div><ul style="margin:4px 0 4px 18px">' + a.evidence.map(e => '<li>' + esc(e) + '</li>').join('') + '</ul>'
+          + '<div><strong>What to do:</strong> ' + esc(a.action) + '</div></div>'; }).join('') : '<div class="item"><div class="d">Nothing stands out yet. Keep going and check back after more applications.</div></div>') + '</div></section>'
+    + (d.working.length ? '<section><h2>What is working</h2><div class="list">' + d.working.map(w => '<div class="item"><div class="t">' + esc(w.title) + '</div><div class="d">' + esc(w.evidence) + '</div></div>').join('') + '</div></section>' : '')
+    + '<section><h2>Over time</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">' + bars(d.trend.found, 'Roles found per week') + bars(d.trend.applied, 'Applications per week') + '</div></section>'
+    + '<section><h2>What gets answered</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">'
+    + breakdownTable('By source', d.breakdown.source) + breakdownTable('By work mode', d.breakdown.work_mode) + breakdownTable('By fit score', d.breakdown.fit_band) + breakdownTable('By level', d.breakdown.level) + '</div></section>'
+    + '<section><h2>What this looks at</h2><small>' + d.data_points.map(p => esc(p.name) + ' (' + p.count + ')').join(' &middot; ') + '</small></section></div>';
+  renderCoach();
+  loadLearned();
+}
+
+// "What the system learned": offline rules from your choices, editable word lists, and the optional AI toggle.
+async function learnedPost(body){
+  try { const r = await fetch('/learned', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }
+  catch (e) { toast('Could not save: ' + e.message); return null; }
+}
+let SUGGESTED_LEVELS = [];
+function hr(h){ return (h < 10 ? '0' : '') + h + ':00'; }
+async function loadLearned(){
+  let d; try { d = await (await fetch('/learned')).json(); } catch (e) { return; }
+  SUGGESTED_LEVELS = d.suggested;
+  const sec = document.createElement('section'); sec.id = 'learned-sec';
+  const old = $('learned-sec'); if (old) old.remove();
+  const rules = d.rules.map(r => '<div class="item"><div class="top"><span class="t">' + esc(r.term) + (r.ai ? ' (AI suggestion)' : '') + '</span>'
+    + '<button class="btn" data-learned="' + (r.forgotten ? 'restore' : 'forget') + '" data-term="' + esc(r.term) + '">' + (r.forgotten ? 'Restore' : 'Forget') + '</button></div>'
+    + '<div class="d">' + (r.forgotten ? 'Not used any more. ' : '') + (r.ai ? 'Suggested by an AI from your past choices; it can be wrong.' : 'You marked ' + r.neg + ' roles with this word as not a match and applied to none.') + '</div></div>').join('');
+  const DIM = {source: 'Source', level: 'Level', band: 'Fit'};
+  const outc = (d.outcomes || []).map(o => '<div class="item"><div class="top"><span class="t">' + esc(DIM[o.dim] || o.dim) + ': ' + esc(o.value) + '</span></div><div class="d">Applied to ' + o.pos + ', not a match ' + o.neg + '.</div></div>').join('');
+  const hints = (d.hints || []).map(h => '<div class="item"><div class="top"><span class="t">' + (h.kind === 'drop' ? 'Consider dropping ' : 'Keep using ') + esc(h.source) + '</span>'
+    + '<button class="btn" data-learned="' + (h.forgotten ? 'restore' : 'forget') + '" data-term="' + esc(h.id) + '">' + (h.forgotten ? 'Restore' : 'Forget') + '</button></div>'
+    + '<div class="d">' + (h.forgotten ? 'Hidden. ' : '') + (h.kind === 'drop' ? 'You marked ' + h.neg + ' roles from it as not a match and applied to none.' : 'You applied to ' + h.pos + ' roles from it and rejected none.') + ' A suggestion only; nothing changes by itself.</div></div>').join('');
+  const kp = (d.kitprefs || []).map(h => '<div class="item"><div class="top"><span class="t">' + esc(h.phrase) + '</span>'
+    + '<button class="btn" data-learned="' + (h.forgotten ? 'restore' : 'forget') + '" data-term="' + esc(h.id) + '">' + (h.forgotten ? 'Restore' : 'Forget') + '</button></div>'
+    + '<div class="d">' + (h.forgotten ? 'Not used any more. ' : '') + 'You took this wording out of ' + h.kits + ' kits by hand. New kits are asked to avoid it.</div></div>').join('');
+  const tm = d.timing ? '<h2>When you act</h2><div class="list"><div class="item"><div class="top"><span class="t">Most of your decisions are between ' + hr(d.timing.start) + ' and ' + hr(d.timing.end) + '</span>'
+    + '<button class="btn" data-learned="' + (d.timing.forgotten ? 'restore' : 'forget') + '" data-term="' + esc(d.timing.id) + '">' + (d.timing.forgotten ? 'Restore' : 'Forget') + '</button></div>'
+    + '<div class="d">' + (d.timing.forgotten ? 'Hidden. ' : '') + d.timing.share + '% of your last ' + d.timing.n + ' button presses fell in that window. If you want nudges or the daily run to land just before it, set them to about ' + hr(Math.max(0, d.timing.start - 1)) + '. A suggestion only; nothing changes by itself.</div></div></div>' : '';
+  const lv = d.levels.length ? d.levels : [];
+  sec.innerHTML = '<h2>Roles you want</h2><div class="box"><p class="note">Tell it what you are looking for. Titles at a level far from yours go to Failed your rules with the reason; titles in a field it does not know are never filtered out. Pick several levels if you are changing direction.</p>'
+    + '<input id="lw-targets" style="width:100%" placeholder="Roles or fields you want, e.g. Marketing Intern, Data Analyst" value="' + esc(d.targets.join(', ')) + '"><div class="actions" style="margin-top:6px"><button class="btn" data-learned-list="targets">Save roles</button></div>'
+    + '<h2 style="margin-top:12px">Levels</h2><div class="actions">' + d.ladder.map(l => '<label style="margin-right:12px"><input type="checkbox" class="lw-level" value="' + l.id + '"' + (lv.includes(l.id) ? ' checked' : '') + '> ' + esc(l.label) + '</label>').join('') + '</div>'
+    + '<p class="note">' + (lv.length ? 'Saved levels are used.' : 'No levels saved, so no level filtering yet. From your work history' + (d.years == null ? '' : ' (about ' + d.years + ' years)') + ' this looks like: <strong>' + esc(d.suggested.map(k => (d.ladder.find(l => l.id === k) || {}).label || k).join(', ')) + '</strong>.') + '</p>'
+    + '<div class="actions"><button class="btn primary" data-learned-levels="1">Save levels</button>' + (lv.length ? '' : '<button class="btn" data-learned-levels="suggest">Use the suggestion</button>') + '</div></div>'
+    + '<h2>What the system learned</h2>'
+    + '<p class="note">Every Not applying, Applied and Apply anyway press teaches it. A word becomes a rule after 2 matching not-a-match choices and none that contradict it. Roles that match a rule are moved to Failed your rules for you to check; nothing is deleted, and pay, location, work authorization and never-submit rules are never changed by learning.</p>'
+    + '<div class="list">' + (rules || '<div class="item"><div class="d">Nothing learned yet. Use Not applying with a reason (Not a match is the strongest signal).</div></div>') + '</div>'
+    + (hints ? '<h2>Source suggestions</h2><div class="list">' + hints + '</div>' : '')
+    + (kp ? '<h2>Wording you remove from kits</h2><div class="list">' + kp + '</div>' : '')
+    + tm
+    + '<h2>Outcomes so far</h2><div class="list">' + (outc || '<div class="item"><div class="d">Nothing to show until a source, level or fit band has at least 2 choices.</div></div>') + '</div>'
+    + '<div class="box"><h2>Words that always send a title to review</h2><input id="lw-exclude" style="width:100%" value="' + esc(d.exclude.join(', ')) + '"><div class="actions" style="margin-top:6px"><button class="btn" data-learned-list="exclude">Save</button></div></div>'
+    + '<div class="box"><h2>Words that always keep a title</h2><input id="lw-include" style="width:100%" placeholder="e.g. internal audit" value="' + esc(d.include.join(', ')) + '"><div class="actions" style="margin-top:6px"><button class="btn" data-learned-list="include">Save</button></div></div>'
+    + '<div class="box"><h2>Active learning with an AI (optional)</h2><p class="note"><strong>Warning:</strong> when this is on, the daily run sends the words of recent role titles and your reasons (no names, no posting text, no notes) to your configured AI, which suggests more words to avoid. An AI can make mistakes. Its suggestions are marked and you can Forget any of them. It needs an AI mode that runs by itself. The offline learning above works either way.</p>'
+    + '<label><input type="checkbox" id="lw-ai"' + (d.ai ? ' checked' : '') + '> Use an AI to suggest more words</label></div>';
+  $('learn-body').appendChild(sec);
+}
+
+// Daily improvement coaching: 3 small tasks a day from the Learning findings. Done earns praise; skipping with a reason is fine.
+var COACH = null;
+async function coachLoad(post, path, body){
+  const r = await fetch(path, post ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})} : undefined);
+  const j = await r.json().catch(() => ({error: 'Unreadable reply'}));
+  if (!r.ok) throw new Error(j.error || 'Something went wrong');
+  return j;
+}
+function praiseToast(t){ const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 7000); }
+function skipLabel(c, t){ const r = c.reasons.find(x => x.code === t.reason); return (r ? r.label : 'Other') + (t.note ? ' - ' + t.note : ''); }
+function coachCard(c){
+  const p = c.plan, tasks = p ? p.tasks : [], open = tasks.filter(t => t.status === 'open').length;
+  const head = '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><h2 style="margin:0">Today\'s improvements</h2><small>'
+    + (c.streak ? c.streak + '-day streak &middot; ' : '') + c.week + ' done this week</small></div>';
+  const body = !p ? '<div class="d">Loading today\'s plan...</div>' : !tasks.length ? '<div class="d">' + (c.resting ? 'Nothing new today. ' + c.resting + ' suggestion' + (c.resting === 1 ? ' is' : 's are') + ' resting because you recently skipped or finished ' + (c.resting === 1 ? 'it' : 'them') + '. The list below still shows every finding.' : 'Nothing needs fixing today. Keep applying.') + '</div>' : tasks.map(t => {
+    if (t.status === 'done') return '<div class="item" data-due="ok"><div class="t">&#10003; ' + esc(t.title) + '</div><div class="d">Done.</div></div>';
+    if (t.status === 'skipped') return '<div class="item"><div class="t" style="opacity:.7">' + esc(t.title) + '</div><div class="d">Skipped: ' + esc(skipLabel(c, t)) + '. No problem.</div></div>';
+    return '<div class="item"><div class="top"><span class="t">' + esc(t.title) + '</span><span class="tag okk">' + t.minutes + ' min</span></div>'
+      + '<div class="d">' + esc(t.why) + '</div>'
+      + (t.previous_skip ? '<div class="d" style="opacity:.8">You skipped this on ' + esc(t.previous_skip.date) + ' (' + esc(t.previous_skip.reason) + (t.previous_skip.note ? ': ' + esc(t.previous_skip.note) : '') + '). Still worth a look when you can; skip it again if it is not.</div>' : '')
+      + '<ol style="margin:4px 0 4px 18px">' + t.steps.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn primary" data-coach="done" data-id="' + esc(t.id) + '">Done</button>'
+      + '<button class="btn" data-coach="skipask" data-id="' + esc(t.id) + '">Not today</button></div>'
+      + '<div data-skipbox="' + esc(t.id) + '" hidden style="display:none;gap:6px;margin-top:6px;flex-wrap:wrap"><select data-reason="' + esc(t.id) + '">'
+      + c.reasons.map(r => '<option value="' + esc(r.code) + '">' + esc(r.label) + '</option>').join('') + '</select>'
+      + '<input data-note="' + esc(t.id) + '" maxlength="300" placeholder="Note (needed for Other)" style="flex:1;min-width:160px">'
+      + '<button class="btn" data-coach="skip" data-id="' + esc(t.id) + '">Skip it</button></div></div>'; }).join('');
+  const prog = c.progress.length ? '<div><h3>Since you started</h3><ul style="margin:4px 0 0 18px">' + c.progress.map(x =>
+      '<li>' + esc(x.title) + ': ' + x.before + ' &rarr; ' + x.now + (x.resolved ? ' (sorted)' : x.now < x.before ? ' (improving)' : '') + '</li>').join('') + '</ul></div>' : '';
+  const skips = c.skips.length ? '<small style="opacity:.75">Recently skipped: ' + c.skips.map(x => esc(x.label + (x.note ? ': ' + x.note : ''))).join(' | ') + '</small>' : '';
+  const dis = c.dismissed.length ? '<small style="opacity:.75">Dismissed as not relevant: ' + c.dismissed.map(x => esc(x.title) + ' <a href="#" data-coach="restore" data-id="' + esc(x.id) + '">bring it back</a>').join(' | ') + '</small>' : '';
+  const ai = c.can_reword && open ? '<div><button class="btn" data-coach="reword">Improve the wording with AI</button></div>' : '';
+  return head + '<div class="list">' + body + '</div>' + ai + prog + skips + dis;
+}
+async function renderCoach(){
+  const hosts = ['coach-t', 'coach-l'].map(x => $(x)).filter(Boolean);
+  if (!hosts.length) return;
+  try {
+    if (!COACH) COACH = await coachLoad(false, '/coach');
+    if (!COACH.plan) COACH = await coachLoad(true, '/coach/plan');
+  } catch (e) { hosts.forEach(h => h.innerHTML = ''); return; }
+  hosts.forEach(h => { h.style.cssText = 'background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;gap:10px'; h.innerHTML = coachCard(COACH); });
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-coach]');
+  if (!b) return;
+  const a = b.dataset.coach, id = b.dataset.id;
+  try {
+    if (a === 'skipask') { document.querySelectorAll('[data-skipbox="' + id + '"]').forEach(x => { x.hidden = false; x.style.display = 'flex'; }); return; }
+    if (a === 'done') { const r = await coachLoad(true, '/coach/done', {id}); praiseToast(r.praise); COACH = r; }
+    else if (a === 'skip') {
+      const box = document.querySelector('[data-note="' + id + '"]'), sel = document.querySelector('[data-reason="' + id + '"]');
+      COACH = await coachLoad(true, '/coach/skip', {id, reason: sel ? sel.value : '', note: box ? box.value : ''}); toast('Skipped. Noted.');
+    } else if (a === 'restore') { e.preventDefault(); COACH = await coachLoad(true, '/coach/restore', {id}); toast('Brought back.');
+    } else if (a === 'reword') { COACH = await coachLoad(true, '/coach/reword'); toast('Wording updated.'); }
+    renderCoach();
+  } catch (err) { toast(err.message); }
+});
+let modeOnly = false;  // true when opened from the Mode panel: switch, report, stay
+async function wizModes(only){
+  modeOnly = only === true;
+  const t = await (await fetch('/wizard/modes')).json();
+  const cur = t.current, w = $('wiz');
+  const head = t.modes.map(m => '<th style="text-align:left;padding:3px 16px 3px 0">' + esc(m.label) + (m.name === cur ? ' (current)' : '') + '</th>').join('');
+  const rows = t.features.map(f => '<tr><td style="padding:3px 16px 3px 0">' + esc(f.label) + '</td>' + t.modes.map(m => { const c = f.cells[m.name]; return '<td style="padding:3px 16px 3px 0' + (c === 'no' ? ';opacity:.5' : '') + '">' + esc(c) + '</td>'; }).join('') + '</tr>').join('');
+  const cards = t.modes.map(m => '<div style="border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:6px"><b>' + esc(m.label) + '</b><i>' + esc(m.tagline) + '</i><span>' + esc(m.summary) + '</span><span><b>Cost:</b> ' + esc(m.cost) + '</span><span><b>Privacy:</b> ' + esc(m.privacy) + '</span>'
+    + '<button class="btn' + (m.name === cur ? '' : ' primary') + '" data-wiz="mode" data-mode="' + esc(m.name) + '">' + (m.name === cur ? 'Keep ' : 'Choose ') + esc(m.label) + '</button></div>').join('');
+  w.innerHTML = '<div style="max-width:900px;margin:0 auto;display:grid;gap:16px"><h2>Choose how much AI to use</h2>'
+    + '<p>You can change this later in Setup. Your data stays as it is when you switch.</p>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">' + cards + '</div>'
+    + '<div style="overflow:auto"><table><thead><tr><th style="text-align:left;padding:3px 16px 3px 0">What</th>' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-wiz="aipick">Choose AI provider</button><button class="btn" data-wiz="gsched">Schedule</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false;
+}
+let aiAfter = 'mail';  // where Continue goes from the AI provider page: 'mail' (first run) or 'modes'
+async function wizAi(after){
+  aiAfter = after || aiAfter;
+  const o = await (await fetch('/wizard/ai')).json(), w = $('wiz');
+  if (o.error) { w.innerHTML = '<div style="max-width:700px;margin:0 auto"><h2>AI provider</h2><p>' + esc(o.error) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
+  const cur = o.presets.find(p => p.id === o.current) || o.presets[0];
+  const opts = o.presets.map(p => '<option value="' + esc(p.id) + '"' + (p.id === cur.id ? ' selected' : '') + '>' + esc(p.label) + (p.installed === false ? ' (not found on this computer)' : '') + '</option>').join('');
+  w.innerHTML = '<div style="max-width:700px;margin:0 auto;display:grid;gap:12px"><h2>Choose your AI provider</h2>'
+    + '<p>' + esc(o.intro) + ' need an AI service to do the thinking. Pick one below and press Save, then Test it. Job postings and parts of your resume are sent to the service you pick (Ollama keeps everything on this computer). You can change it later in Setup.</p>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<label style="display:grid;gap:3px">Provider<select id="ai-p">' + opts + '</select></label>'
+    + '<label id="ai-mw" style="display:grid;gap:3px">Model name <small id="ai-mh"></small><input id="ai-m" value="' + esc(o.model || '') + '" autocomplete="off" spellcheck="false"></label>'
+    + '<label id="ai-bw" style="display:grid;gap:3px">Service web address<input id="ai-b" value="' + esc(o.base || '') + '" autocomplete="off" spellcheck="false" placeholder="https://..."></label>'
+    + '<label id="ai-kw" style="display:grid;gap:3px">API key <small>' + (o.key_set ? 'A key is already stored. Leave blank to keep it.' : 'Stored in your computer keyring when one exists.') + '</small><input id="ai-k" type="password" autocomplete="off"></label>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-wiz="aisave">Save</button><button class="btn" data-wiz="aitest">Test it</button><button class="btn" data-wiz="ainext">Continue</button></div></div>';
+  w._ai = o.presets; wizAiShow(); w.hidden = false;
+  $('ai-p').addEventListener('change', wizAiShow);
+}
+function wizAiShow(){
+  const id = $('ai-p').value, p = ($('wiz')._ai || []).find(x => x.id === id) || {};
+  const api = ['anthropic', 'openai', 'gemini', 'openrouter', 'ollama', 'other'].includes(id);
+  $('ai-mw').hidden = !api; $('ai-kw').hidden = !(api && id !== 'ollama'); $('ai-bw').hidden = id !== 'other';
+  $('ai-mh').textContent = p.model_hint ? '(' + p.model_hint + ')' : '';
+}
+function wizAiBody(){ return {preset: $('ai-p').value, api_model: $('ai-m').value, api_base: $('ai-b').value, key: $('ai-k').value}; }
+async function wizMail(pick){
+  const P = await (await fetch('/wizard/providers')).json();
+  const key = pick && P[pick] ? pick : null, pv = key ? P[key] : null, w = $('wiz');
+  const field = (id, label, type, val) => '<label style="display:grid;gap:3px">' + label + '<input id="' + id + '" type="' + type + '" value="' + esc(val || '') + '" autocomplete="off" spellcheck="false"></label>';
+  w.innerHTML = '<div style="max-width:620px;margin:0 auto;display:grid;gap:14px"><h2>Email and calendar</h2>'
+    + '<p>Command Center only reads mail from job boards and recruiters. It cannot send, delete or move anything. Both parts are optional.</p>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + Object.keys(P).map(k => '<button class="btn' + (k === key ? ' primary' : '') + '" data-wiz="prov" data-k="' + k + '">' + esc(P[k].label) + '</button>').join('') + '</div>'
+    + (pv ? '<ol>' + pv.steps.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol>'
+      + field('m-host', 'Mail server', 'text', pv.host) + field('m-user', 'Your email address', 'text', '') + field('m-folder', 'Folder', 'text', 'INBOX') + field('m-pw', 'App password', 'password', '')
+      + '<div style="display:flex;gap:8px"><button class="btn" data-wiz="mtest">Test</button><button class="btn primary" data-wiz="msave">Test and save</button></div>' : '')
+    + '<h3>Calendar (optional)</h3><p>Paste the private https link of your calendar feed (an .ics link). It is kept in the keyring of this computer, not in a file in this project.</p>'
+    + field('c-url', 'Calendar link', 'password', '') + '<div style="display:flex;gap:8px"><button class="btn" data-wiz="ctest">Test</button><button class="btn primary" data-wiz="csave">Test and save</button></div>'
+    + '<div style="display:flex;gap:8px"><button class="btn primary" data-wiz="next2">Continue</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false;
+}
+// Result of a Test or Save: a banner pinned to the top of the window so it is seen wherever the page is scrolled.
+// "..." means still working (grey); success hides itself after 10 s; a failure stays until dismissed or the next click.
+function wizMsg(ok, t){
+  $('wiz-err').textContent = ''; $('wiz-ok').textContent = '';
+  let b = $('wiz-banner');
+  if (!b) {
+    b = document.createElement('div'); b.id = 'wiz-banner';
+    b.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10000;max-width:min(640px,calc(100vw - 24px));'
+      + 'padding:12px 16px;border-radius:8px;border:2px solid;font-size:15px;line-height:1.35;box-shadow:0 4px 18px rgba(0,0,0,.25);display:flex;gap:12px;align-items:flex-start';
+    document.body.appendChild(b);
+  }
+  const busy = ok && /\.\.\.$/.test(t);
+  const [bg, bd, fg, icon] = busy ? ['#eef1f6', '#8a96a8', '#243044', '…'] : ok ? ['#e3f4e8', '#2e8b57', '#14532d', '✓'] : ['#fde8e8', '#c0392b', '#7f1d1d', '✗'];
+  b.style.background = bg; b.style.borderColor = bd; b.style.color = fg;
+  b.setAttribute('role', ok ? 'status' : 'alert');
+  b.innerHTML = '<b style="font-size:18px">' + icon + '</b><span style="flex:1">' + (busy ? '' : '<b>' + (ok ? 'Done. ' : 'Failed. ') + '</b>') + esc(t) + '</span>'
+    + '<button type="button" data-wiz="dismiss" style="all:unset;cursor:pointer;font-size:18px;line-height:1" aria-label="Dismiss">×</button>';
+  b.hidden = false; clearTimeout(b._t);
+  if (ok && !busy) b._t = setTimeout(() => { b.hidden = true; }, 10000);
+}
+function wizJobRow(j){
+  j = j || {};
+  const inp = (k, ph) => '<input data-j="' + k + '" placeholder="' + ph + '" value="' + esc(j[k] || '') + '" autocomplete="off" style="min-width:0">';
+  return '<div class="wjob" style="border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;gap:6px">'
+    + '<div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">' + inp('employer', 'Employer') + inp('title', 'Exact title') + inp('dates', 'Dates, e.g. 2019 - 2023') + '</div>'
+    + '<textarea data-j="facts" rows="3" placeholder="True facts about this job, one per line (numbers, team size, tools, results)">' + esc((j.facts || []).join('\n')) + '</textarea>'
+    + '<label><input type="checkbox" data-j="ok"' + (j.ok ? ' checked' : '') + '> I confirm these are true</label></div>';
+}
+async function wizResume(file){
+  const buf = new Uint8Array(await file.arrayBuffer()); let bin = '';
+  for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 8192));
+  const r = await wizCall('/wizard/resume', {name: file.name, data: btoa(bin)}); let n = 0;
+  Object.keys(r.fields || {}).forEach(k => { const el = document.querySelector('[data-f="' + k + '"]'); if (el && !el.value) { el.value = r.fields[k].value; pickSync(el); n++; } });
+  const ai = r.ai || {}; let aiNote = '';
+  if (ai.status === 'ok') {
+    const box = $('wjobs'), sk = $('w-skills');
+    (ai.jobs || []).forEach(j => { box.insertAdjacentHTML('beforeend', wizJobRow(j)); n++; });
+    if (ai.skills && ai.skills.value && !sk.value) { sk.value = ai.skills.value; n++; }
+    aiNote = ' Jobs and skills came from your AI and are copied from the resume; check each one before ticking "I confirm".';
+  } else if (ai.reason) aiNote = ' Jobs and skills were not read: ' + ai.reason;
+  wizMsg(true, (n ? 'Filled ' + n + ' item(s) from your resume. Check each one and tick "correct" only if it is true.' : 'Nothing new found, or those boxes already have values.') + aiNote);
+}
+async function wizQc(){
+  const r = await (await fetch('/wizard/qcrules')).json(), w = $('wiz');
+  if (r.error) { w.innerHTML = '<div style="max-width:760px;margin:0 auto"><p role="alert">' + esc(r.error) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
+  const f = r.form, lines = a => esc((a || []).join('\n')), v = x => esc(x == null ? '' : String(x));
+  const row = (label, ctl, hint) => '<label style="display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:8px;align-items:center"><span>' + label + (hint ? '<br><small>' + hint + '</small>' : '') + '</span>' + ctl + '</label>';
+  w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>Resume checks</h2>'
+    + '<p>Rules your resumes must pass before they count as ready. Every box is optional: a blank box means that check is off. Nothing here is defaulted for you.</p>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + row('City to show', '<input id="q-home" value="' + v(f.home_city) + '" placeholder="e.g. Austin, TX">', 'Must appear on the resume')    + row('Never claim', '<textarea id="q-never" rows="4" placeholder="One phrase per line, e.g. a team size or a title you never held">' + lines(f.never_claim) + '</textarea>', 'Fails if any phrase appears')
+    + row('Resume length', '<select id="q-pages">' + [['', 'Auto'], [1, '1 page'], [2, '2 pages'], [3, '3 pages']].concat(f.pages > 3 ? [[f.pages, f.pages + ' pages']] : []).map(o => '<option value="' + o[0] + '"' + (String(f.pages ?? '') === String(o[0]) ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>', 'Auto matches the resume you uploaded (2 pages if none)')
+    + row('Last page at least this full', '<input id="q-fill" type="number" min="0" max="100" step="5" value="' + (f.min_last_page_fill == null ? '' : Math.round(f.min_last_page_fill * 100)) + '"> %')
+    + row('No contractions', '<input id="q-contr" type="checkbox"' + (f.no_contractions ? ' checked' : '') + '>', 'Fails on don’t, we’re, and so on')
+    + row('Words to avoid', '<textarea id="q-words" rows="4" placeholder="One word or phrase per line">' + lines(f.banned_words) + '</textarea>')
+    + '<div><button class="btn" data-wiz="qstarter">Add a starter list of overused words</button></div>'
+    + row('Extra tools or certificates to watch', '<textarea id="q-watch" rows="3" placeholder="One per line">' + lines(f.watch_terms_add) + '</textarea>', 'Fails if on the resume but not in your profile')
+    + (r.kept_as_is.length ? '<p><small>Also in your rules file and kept as is: ' + esc(r.kept_as_is.join(', ')) + '</small></p>' : '')
+    + '<div style="display:flex;gap:8px"><button class="btn primary" data-wiz="qsave">Save</button><button class="btn" data-wiz="qnext">Continue</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w._starter = r.starter_banned_words; w.hidden = false;
+}
+function wizQcForm(){
+  const list = id => $(id).value.split('\n').map(s => s.trim()).filter(Boolean), num = id => $(id).value === '' ? null : Number($(id).value);
+  const fill = num('q-fill');
+  return {home_city: $('q-home').value.trim(), never_claim: list('q-never'), pages: num('q-pages'),
+    min_last_page_fill: fill == null ? null : fill / 100, no_contractions: $('q-contr').checked, banned_words: list('q-words'), watch_terms_add: list('q-watch')};
+}
+const CURRENCIES = ['CAD', 'USD', 'EUR', 'GBP', 'AUD', 'NZD', 'CHF', 'SEK', 'NOK', 'DKK', 'JPY', 'INR', 'SGD', 'MXN', 'BRL', 'ZAR', 'AED'];
+const COUNTRY_NAMES = ['Canada', 'United States', 'United Kingdom', 'Australia', 'New Zealand', 'Ireland', 'Germany', 'France', 'Netherlands', 'Spain', 'Italy', 'Portugal',
+  'Belgium', 'Luxembourg', 'Sweden', 'Norway', 'Denmark', 'Finland', 'Switzerland', 'Austria', 'Poland', 'Czechia', 'India', 'Singapore', 'Japan', 'Israel',
+  'United Arab Emirates', 'South Africa', 'Mexico', 'Brazil', 'Argentina', 'Chile', 'Colombia'];
+// A closed list with an Other box, so a value outside the list can still be typed. The text input stays the value holder.
+function pickHtml(list, value, attrs){
+  const v = value == null ? '' : String(value), known = list.includes(v);
+  return '<span data-pickwrap style="display:grid;gap:4px"><select data-pick aria-label="Choose from the list"><option value="">Choose...</option>'
+    + list.map(x => '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>').join('')
+    + '<option value="__other"' + (v && !known ? ' selected' : '') + '>Other...</option></select>'
+    + '<input ' + attrs + ' value="' + esc(v) + '" autocomplete="off" placeholder="Type it here"' + (!v || known ? ' hidden' : '') + '></span>';
+}
+function pickSync(input){
+  const sel = input.closest('[data-pickwrap]') && input.closest('[data-pickwrap]').querySelector('select'); if (!sel) return;
+  const hit = [...sel.options].find(o => o.value === input.value && o.value !== '__other');
+  sel.value = hit ? hit.value : (input.value ? '__other' : ''); input.hidden = !!hit || !input.value;
+}
+document.addEventListener('change', e => {
+  if (e.target.id === 'lw-ai') { const on = e.target.checked; learnedPost({action: 'ai', on}).then(j => { if (!j) e.target.checked = !on; else toast(on ? 'AI learning on. Its suggestions can be wrong; you can forget any of them.' : 'AI learning off.'); }); return; }
+  const s = e.target; if (!s.matches || !s.matches('[data-pick]')) return;
+  const t = s.parentNode.querySelector('input');
+  if (s.value === '__other') { t.hidden = false; t.value = ''; t.focus(); } else { t.hidden = true; t.value = s.value; }
+});
+async function wizProfile(){
+  const r = await (await fetch('/wizard/profile')).json(), st = r.state, w = $('wiz');
+  let wants = null; try { wants = await (await fetch('/learned')).json(); } catch (e) {}
+  let group = '', rows = '';
+  r.fields.forEach(f => {
+    if (f.group !== group) { group = f.group; rows += '<h3>' + esc(group) + '</h3>'; }
+    const c = st.fields[f.key] || {value: '', ok: false};
+    rows += '<div style="display:grid;grid-template-columns:minmax(120px,1fr) 2fr auto;gap:8px;align-items:center"><span>' + esc(f.label) + '</span>'
+      + (f.kind === 'yesno' ? '<select data-f="' + f.key + '"><option></option><option' + (c.value === 'Yes' ? ' selected' : '') + '>Yes</option><option' + (c.value === 'No' ? ' selected' : '') + '>No</option></select>'
+        : f.kind === 'list' || f.kind === 'map' ? '<textarea data-f="' + f.key + '" rows="3" autocomplete="off">' + esc((c.value || []).join('\n')) + '</textarea>'
+        : f.key === 'country' ? pickHtml(COUNTRY_NAMES, c.value, 'data-f="country"')
+        : '<input data-f="' + f.key + '" value="' + esc(c.value) + '" autocomplete="off">')
+      + '<label title="Only confirmed facts are used"><input type="checkbox" data-ok="' + f.key + '"' + (c.ok ? ' checked' : '') + '> correct</label></div>';
+  });
+  w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>Your profile</h2><div id="wiz-pct" role="status"></div>'
+    + '<p>Type only what is true. Nothing is guessed or filled in for you, and a fact is used only after you tick it. Everything stays in your data folder.</p>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<label>Fill blanks from your resume (.docx, .pdf, .txt): <input type="file" id="w-resume" accept=".docx,.pdf,.txt,.md"></label><small>The file is read on this computer and a copy is kept in your data folder. No fact from it is used until you tick it.</small>' + rows
+    + '<h3>Jobs</h3><div id="wjobs" style="display:grid;gap:8px">' + st.jobs.map(wizJobRow).join('') + '</div><div><button class="btn" data-wiz="addjob">Add a job</button></div>'
+    + '<h3>Skills and tools</h3><textarea id="w-skills" rows="2" placeholder="Only skills you can back up">' + esc(st.skills.value) + '</textarea>'
+    + '<label><input type="checkbox" id="w-skills-ok"' + (st.skills.ok ? ' checked' : '') + '> I confirm these are true</label>'
+    + (wants ? '<h3>Roles you want</h3><p class="note">Optional. Used only to sort and flag roles, never as a fact about you. A title far from your level goes to a review list; titles in fields it does not know are never hidden. Tick several levels if you are changing direction.</p>'
+      + '<input id="w-targets" style="width:100%" placeholder="Roles or fields you want, e.g. Marketing Intern, Data Analyst" value="' + esc(wants.targets.join(', ')) + '">'
+      + '<div>' + wants.ladder.map(l => '<label style="margin-right:12px"><input type="checkbox" class="w-level" value="' + l.id + '"' + ((wants.levels.length ? wants.levels : wants.suggested).includes(l.id) ? ' checked' : '') + '> ' + esc(l.label) + '</label>').join('') + '</div>'
+      + '<small>' + (wants.levels.length ? 'Your saved levels.' : 'Ticked from your work history' + (wants.years == null ? '' : ' (about ' + wants.years + ' years)') + '. Change them if that is wrong; save the profile again after adding jobs.') + '</small>' : '')
+    + '<div style="display:flex;gap:8px"><button class="btn primary" data-wiz="psave">Save profile</button><button class="btn" data-wiz="pnext">Continue</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false; refreshProfileBar();
+  if (r.draft) wizMsg(true, 'We restored the draft you had not saved yet. Press Save profile when you are ready.');
+}
+async function wizSaveWants(){
+  if (!$('w-targets')) return;
+  await learnedPost({action: 'targets', items: $('w-targets').value.split(',')});
+  await learnedPost({action: 'levels', items: [...document.querySelectorAll('#wiz .w-level:checked')].map(x => x.value)});
+}
+function wizProfileForm(){
+  const fields = {};
+  document.querySelectorAll('#wiz [data-f]').forEach(e => { fields[e.dataset.f] = {value: e.value, ok: !!document.querySelector('#wiz [data-ok="' + e.dataset.f + '"]').checked}; });
+  const jobs = [...document.querySelectorAll('#wiz .wjob')].map(d => { const g = k => d.querySelector('[data-j="' + k + '"]'); return {employer: g('employer').value, title: g('title').value, dates: g('dates').value, facts: g('facts').value.split('\n').map(x => x.trim()).filter(Boolean), ok: g('ok').checked}; }).filter(j => j.employer || j.title);
+  return {fields, jobs, skills: {value: $('w-skills').value, ok: $('w-skills-ok').checked}};
+}
+async function wizRules(){
+  const st = (await (await fetch('/wizard/rules')).json()).state, w = $('wiz');
+  const v = x => esc(x == null ? '' : String(x)), lines = a => esc((a || []).join('\n'));
+  const row = (label, ctl, hint) => '<label style="display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:8px;align-items:center"><span>' + label
+    + (hint ? '<small style="display:block;font-weight:normal;opacity:.75;margin-top:2px">' + hint + '</small>' : '') + '</span>' + ctl + '</label>';
+  const routeRow = r => { r = r || {}; return '<div class="wroute" style="border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;gap:6px">'
+    + '<div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))"><input data-r="country" placeholder="Country, e.g. United States or US" value="' + v(r.country) + '"><input data-r="route" placeholder="Visa or permit, e.g. TN, H1B" value="' + v(r.route) + '"></div>'
+    + '<div style="display:flex;gap:12px;flex-wrap:wrap"><label>Posting says nothing: <select data-r="on_silent"><option value="flag"' + (r.on_silent === 'fail' ? '' : ' selected') + '>warn me</option><option value="fail"' + (r.on_silent === 'fail' ? ' selected' : '') + '>skip it</option></select></label>'
+    + '<label>Posting excludes it: <select data-r="on_excludes"><option value="fail"' + (r.on_excludes === 'flag' ? '' : ' selected') + '>skip it</option><option value="flag"' + (r.on_excludes === 'flag' ? ' selected' : '') + '>warn me</option></select></label>'
+    + '<label><input type="checkbox" data-r="flag_people_management"' + (r.flag_people_management ? ' checked' : '') + '> warn on mostly-management roles</label></div>'
+    + '<textarea data-r="flag_title_patterns" rows="2" placeholder="Job titles that may not qualify for this permit, one per line, e.g. Director">' + lines(r.flag_title_patterns) + '</textarea>'
+    + '<input data-r="note" placeholder="Note shown with the warning (optional)" value="' + v(r.note) + '"></div>'; };
+  w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>Your rules</h2>'
+    + '<p>These decide which roles are skipped or flagged. Nothing is assumed for pay: type your own minimums. Type values in your own words (for example <b>$85k</b>, <b>10%</b>, <b>Spain</b>); if something is not understood, the message tells you what to type. Leave a list empty if it does not apply.</p>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<h3>Pay</h3>' + row('Currency', pickHtml(CURRENCIES, st.currency, 'id="r-cur"'),
+        'The amounts below are in this currency. Choose Other if yours is not listed, then type its 3-letter code.')
+    + row('Lowest yearly salary', '<input id="r-sal" value="' + v(st.floor_salary) + '" placeholder="e.g. 85000" autocomplete="off">',
+        'A role is skipped when the top of its posted pay is below this. Type it any way you like: 85000, 85,000 or $85k.')
+    + row('Lowest hourly rate', '<input id="r-hr" value="' + v(st.floor_hourly) + '" placeholder="e.g. 40" autocomplete="off">',
+        'The same for contract or hourly roles, for example 40 or $40/hr.')
+    + row('Warn instead of skip when within', '<input id="r-fw" value="' + v(st.flag_within ? Math.round(st.flag_within * 10000) / 100 + '%' : '') + '" placeholder="e.g. 5%" autocomplete="off">',
+        'A role that pays just under your minimum is flagged instead of skipped when it is within this much. Type 10% for "within 10%", or 0 to always skip. Up to 50%.')
+    + '<h3>Location</h3>' + row('Home country', pickHtml(COUNTRY_NAMES, st.home_country, 'id="r-home"'),
+        'Where you are authorized to work without a visa. Choose Other if yours is not listed, then type its name or 2-letter code.')
+    + row('Remote is fine from', '<textarea id="r-rem" rows="2" placeholder="United States&#10;Mexico">' + lines(st.remote_countries) + '</textarea>',
+        'A remote role is accepted when the employer is in one of these countries. One per line, names or 2-letter codes. A region such as Europe must be listed country by country, for example GB, DE, FR, NL.')
+    + row('On-site or hybrid is fine in', '<textarea id="r-reg" rows="2" placeholder="Texas&#10;Austin">' + lines(st.onsite_regions) + '</textarea>',
+        'Provinces, states or cities in your home country where you would go to an office, spelled as job postings show them, one per line. Do not type Remote or Hybrid here; remote roles are covered by the box above. Empty means no on-site roles at home.')
+    + row('Relocation channels', '<textarea id="r-ch" rows="2" placeholder="(leave empty if none)">' + lines(st.relocation_channels) + '</textarea>',
+        'Job sources or programs that offer relocation or sponsorship, written as they appear in your alerts. Roles from them pass the location check wherever they are. Most people leave this empty.')
+    + '<label><input type="checkbox" id="r-via"' + (st.onsite_via_route ? ' checked' : '') + '> On-site abroad is fine where I have a work route below</label>'
+    + '<h3>Work authorization abroad</h3><p style="margin:0;opacity:.75"><small>For each country outside home where you can work on a visa or permit. A role there is accepted unless the posting rules your permit out; the choices say what to do when a posting is silent or excludes it.</small></p><div id="wroutes" style="display:grid;gap:8px">' + st.routes.map(routeRow).join('') + '</div>'
+    + '<div><button class="btn" data-wiz="addroute">Add a country</button></div>'
+    + '<div style="display:flex;gap:8px"><button class="btn primary" data-wiz="rsave">Save rules</button><button class="btn" data-wiz="rnext">Continue</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false;
+  w._routeRow = routeRow;
+}
+function wizRulesForm(){
+  const ls = id => $(id).value.split('\n').map(x => x.trim()).filter(Boolean);
+  const routes = [...document.querySelectorAll('#wiz .wroute')].map(d => { const g = k => d.querySelector('[data-r="' + k + '"]');
+    return {country: g('country').value, route: g('route').value, on_silent: g('on_silent').value, on_excludes: g('on_excludes').value,
+      flag_people_management: g('flag_people_management').checked, flag_title_patterns: g('flag_title_patterns').value.split('\n').map(x => x.trim()).filter(Boolean), note: g('note').value}; }).filter(r => r.country || r.route);
+  return {currency: $('r-cur').value, floor_salary: $('r-sal').value, floor_hourly: $('r-hr').value, flag_within: $('r-fw').value,
+    home_country: $('r-home').value, remote_countries: ls('r-rem'), onsite_regions: ls('r-reg'), relocation_channels: ls('r-ch'),
+    onsite_via_route: $('r-via').checked, routes};
+}
+// ---- Unsaved profile draft: saved to the data folder a moment after each edit, so a closed tab loses nothing.
+let draftTimer = null;
+function draftNote(t, bad){ let n = $('wiz-draft'); if (!n) { n = document.createElement('div'); n.id = 'wiz-draft'; n.setAttribute('role', 'status'); n.style.cssText = 'position:fixed;right:14px;bottom:10px;font-size:13px;padding:4px 10px;border-radius:6px;background:var(--surface,#f4f4f4);border:1px solid var(--line,#ccc)'; document.body.appendChild(n); } n.textContent = t; n.style.color = bad ? '#b00' : ''; n.hidden = false; }
+async function draftSend(keepalive){
+  draftTimer = null;
+  if ($('wiz').hidden || !document.querySelector('#wiz [data-f]')) return;
+  try {
+    const r = await fetch('/wizard/draft', {method: 'POST', keepalive: !!keepalive, headers: {'Content-Type': 'application/json'}, body: JSON.stringify({form: 'profile', data: wizProfileForm()})});
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'not saved');
+    draftNote('Draft saved. Press Save profile to use it.');
+  } catch (e) { draftNote('Draft not saved: ' + e.message, true); }
+}
+function draftSoon(e){
+  if ($('wiz').hidden || !document.querySelector('#wiz [data-f]') || !e.target.closest || !e.target.closest('#wiz')) return;
+  draftNote('Saving draft...'); clearTimeout(draftTimer); draftTimer = setTimeout(draftSend, 1200);
+}
+document.addEventListener('input', draftSoon);
+document.addEventListener('change', draftSoon);
+document.addEventListener('visibilitychange', () => { if (document.hidden && draftTimer) { clearTimeout(draftTimer); draftSend(true); } });
+
+// ---- Kit folder: where resumes and kits are saved
+async function wizKits(result){
+  const r = await (await fetch('/kits-folder')).json(), w = $('wiz');
+  w.innerHTML = '<div style="max-width:820px;margin:0 auto;display:grid;gap:12px"><h2>Kit folder</h2>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<p>Every resume and kit you build is saved in this folder, one folder per role. It is included in your backups.</p>'
+    + '<p>Now: <code style="word-break:break-all">' + esc(r.path) + '</code> (' + r.files + ' file' + (r.files === 1 ? '' : 's') + (r.custom ? '' : ', the default') + ') <button class="btn" data-openkit="">Open folder</button></p>'
+    + (result ? '<div style="border:2px solid #2e8b57;border-radius:8px;padding:10px 12px;display:grid;gap:6px">' + result + '</div>' : '')
+    + '<label style="display:grid;gap:4px">Use this folder instead <input id="kits-path" type="text" value="' + esc(r.custom ? r.path : '') + '" placeholder="D:/Documents/Resumes" style="width:100%"></label>'
+    + '<p class="note">Type the full path. If the folder does not exist, Command Center creates it. Your existing kits are moved into it, and every link on the dashboard keeps working. If Windows will not let Command Center create it, create the folder yourself and give your Windows user permission to change it (right-click the folder, Properties, Security).</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-wiz="kitsave">Save and move my kits</button>'
+    + (r.custom ? '<button class="btn" data-wiz="kitreset">Go back to the default folder</button>' : '') + '<button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false;
+}
+async function kitsChange(path){
+  wizMsg(true, 'Checking the folder and moving your kits. This can take a minute...');
+  const j = await wizCall('/kits-folder', {path});
+  KITS_DIR = j.path; render();
+  await wizKits('<b>Done.</b><span>Moved ' + j.moved + ' file' + (j.moved === 1 ? '' : 's') + ' to <code style="word-break:break-all">' + esc(j.path) + '</code>.' + (j.left ? ' ' + j.left + ' could not be removed from the old folder (still open?); they are safe there and copied here.' : '') + '</span>');
+}
+
+// ---- Backup & restore
+let bkPending = null;
+const bkSize = n => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+async function wizBackup(result){
+  const r = await (await fetch('/backup/list')).json(), w = $('wiz');
+  const kind = {auto: 'Automatic (daily)', manual: 'Made by you', 'before-restore': 'Saved before a restore'};
+  const rows = r.backups.map(b => '<tr><td>' + esc(b.modified.replace('T', ' ')) + '</td><td>' + esc(kind[b.kind] || b.kind) + '</td><td>' + bkSize(b.bytes) + '</td>'
+    + '<td>' + (b.where === 'copy' ? 'Copy folder' : 'Data folder') + '</td>'
+    + '<td><a href="/backup/download/' + encodeURIComponent(b.name) + '?where=' + b.where + '" download>Download</a> <button class="btn" data-wiz="bkask" data-name="' + esc(b.name) + '" data-where="' + b.where + '">Restore</button></td></tr>').join('');
+  const F = r.folders, S = r.settings, fold = (k, label, path) => path ? '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>' + label + '</b><code style="word-break:break-all">' + esc(path) + '</code><button class="btn" data-wiz="bkopen" data-which="' + k + '">Open folder</button></div>' : '';
+  w.innerHTML = '<div style="max-width:820px;margin:0 auto;display:grid;gap:12px"><h2>Backup &amp; restore</h2>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<div style="border:2px solid #b8860b;border-radius:8px;padding:10px 12px;display:grid;gap:6px"><b>Not included in any backup</b><span>' + esc(r.notice) + '</span><span>' + esc(r.file_notice) + '</span></div>'
+    + (result ? '<div style="border:2px solid #2e8b57;border-radius:8px;padding:10px 12px;display:grid;gap:6px">' + result + '</div>' : '')
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-wiz="bkcreate">Create a backup now</button><button class="btn" data-wiz="close">Close</button></div>'
+    + '<p>A backup is made automatically once a day and the last 7 are kept in your data folder. That protects you from mistakes, not from losing this computer: <b>download a copy and keep it somewhere else</b> (a USB stick or cloud folder).</p>'
+    + '<div id="bk-confirm"></div>'
+    + '<h3>Where things are</h3><div style="display:grid;gap:6px">' + fold('backups', 'Backups are saved in', F.backups) + fold('extra', 'Copy of each daily backup', F.extra) + fold('kits', 'Kits (included in backups)', F.kits)
+    + (F.extra ? '' : '<span>No copy folder is set, so every backup is only on this computer. Set one below.</span>') + '<span>Restore reads from the list below (either folder) or from a file you choose.</span></div>'
+    + '<h3>Housekeeping</h3><div style="display:grid;gap:8px;max-width:560px"><label>Daily backups to keep (1 to 60) <input type="number" id="bk-keep" min="1" max="60" value="' + S.keep + '" style="width:5em"></label>'
+    + '<label>Backups you made yourself to keep (1 to 200) <input type="number" id="bk-keepm" min="1" max="200" value="' + S.keep_manual + '" style="width:5em"></label>'
+    + '<label>Copy each daily backup to this folder (optional, for example a USB stick or cloud folder)<input id="bk-extra" maxlength="500" value="' + esc(S.extra_dir) + '" placeholder="D:/Backups" style="width:100%"></label>'
+    + '<span>Older backups beyond these numbers are deleted. The last 5 saved-before-restore files are always kept.</span><div><button class="btn primary" data-wiz="bksettings">Save housekeeping</button></div></div>'
+    + '<h3>Your backups</h3>' + (rows ? '<table style="width:100%;border-collapse:collapse"><thead><tr><th align="left">Made</th><th align="left">Kind</th><th align="left">Size</th><th align="left">Stored in</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' : '<p>None yet.</p>')
+    + '<h3>Restore from a file</h3><p>Use this after reinstalling, or on a new computer. Choose a .ccbackup file you saved earlier.</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="file" id="bk-file" accept=".ccbackup"><button class="btn" data-wiz="bkaskfile">Restore from this file</button></div>'
+    + '<h3>Bring in data from another tool</h3><p>Choose a spreadsheet of applications (.csv or .xlsx) or a JSON Resume (.json). You see what was found first. Nothing is saved until you confirm.</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="file" id="imp-file" accept=".csv,.xlsx,.json,.tsv,.txt"><button class="btn" data-wiz="imppreview">Show what is in this file</button></div><div id="imp-out"></div></div>';
+  w.hidden = false; bkPending = null; window.bkNextSafety = r.next_safety;
+}
+function bkConfirm(){
+  const dir = window.bkNextSafety.replace(/[^\\/]*$/, '');
+  $('bk-confirm').innerHTML = '<div style="border:2px solid #c0392b;border-radius:8px;padding:10px 12px;display:grid;gap:8px"><b>Restoring replaces everything now in Command Center.</b>'
+    + '<span>Before anything changes, your CURRENT data is saved to this folder, in a file named before-restore-(date and time).ccbackup:</span><code style="word-break:break-all">' + esc(dir) + '</code>'
+    + '<span>If the restore is not what you wanted, restore that file from the list below to go back. Passwords and API keys are not part of backups, so you will enter them again.</span>'
+    + '<div style="display:flex;gap:8px"><button class="btn primary" data-wiz="bkyes">Yes, restore</button><button class="btn" data-wiz="bkno">Cancel</button></div></div>';
+  $('bk-confirm').scrollIntoView({block: 'center'});
+}
+let impFile = null;
+async function impSend(mode){
+  if (mode === 'preview') { impFile = $('imp-file').files[0]; if (!impFile) throw new Error('Choose a file first.'); }
+  if (!impFile) throw new Error('Choose a file first.');
+  const r = await fetch('/import-other/' + mode + '?name=' + encodeURIComponent(impFile.name), {method: 'POST', headers: {'Content-Type': 'application/octet-stream'}, body: impFile});
+  const j = await r.json().catch(() => ({error: 'Unreadable reply'}));
+  if (!r.ok) throw new Error(j.error || 'Import failed');
+  const o = $('imp-out');
+  if (mode === 'apply') {
+    impFile = null;
+    o.innerHTML = '<p><b>Done.</b> ' + (j.kind === 'resume' ? 'Your profile draft was updated. Open Your profile and resume and tick each fact that is right.' : esc(String(j.roles)) + ' roles were added as imported.') + '</p>';
+    return;
+  }
+  let h;
+  if (j.kind === 'resume') h = '<p>Would add to your profile draft: <b>' + esc(j.draft_adds.join(', ') || 'nothing new') + '</b></p>';
+  else h = '<p><b>' + j.roles + '</b> new roles, ' + j.duplicates + ' already known, ' + j.skipped_count + ' skipped.</p>'
+    + '<p>Columns used: ' + esc(Object.entries(j.mapped).map(e => e[0] + ' = ' + e[1]).join(', ')) + '</p>'
+    + (j.sample.length ? '<table style="width:100%;border-collapse:collapse"><thead><tr><th align="left">Company</th><th align="left">Role</th><th align="left">Status</th></tr></thead><tbody>' + j.sample.map(x => '<tr><td>' + esc(x.company) + '</td><td>' + esc(x.title) + '</td><td>' + esc(x.status) + '</td></tr>').join('') + '</tbody></table>' : '')
+    + (j.skipped.length ? '<p>Skipped: ' + esc(j.skipped.map(x => 'row ' + x.row + ' (' + x.reason + ')').join('; ')) + '</p>' : '');
+  o.innerHTML = h + j.notes.map(n => '<p>' + esc(n) + '</p>').join('')
+    + ((j.roles || (j.draft_adds && j.draft_adds.length)) ? '<button class="btn primary" data-wiz="impapply">Save this</button>' : '<p>Nothing to save.</p>');
+}
+async function bkRun(){
+  const p = bkPending; bkPending = null;
+  wizMsg(true, 'Restoring...');
+  let r;
+  if (p.file) r = await fetch('/backup/restore?replace=1', {method: 'POST', headers: {'Content-Type': 'application/octet-stream'}, body: p.file});
+  else r = await fetch('/backup/restore-local', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: p.name, where: p.where || 'data', replace: true})});
+  const j = await r.json().catch(() => ({error: 'Unreadable reply'}));
+  if (!r.ok) throw new Error(j.error || 'Restore failed');
+  const keep = j.safety_backup ? '<span><b>Your previous data was saved to:</b></span><code style="word-break:break-all">' + esc(j.safety_backup) + '</code><span>To go back to it, restore that file from the list below.</span>' : '';
+  const again = j.reenter && j.reenter.length ? '<span><b>Enter these again in Setup:</b> ' + esc(j.reenter.join(', ')) + '.</span>' : '';
+  await wizBackup('<b>Restored ' + j.restored + ' files.</b>' + keep + '<span>' + esc(j.notice) + '</span>' + again);
+  if (typeof refreshProfileBar === 'function') refreshProfileBar();
+}
+async function wizSchedule(){
+  const r = await (await fetch('/wizard/schedule')).json(), w = $('wiz');
+  if (r.error) { w.innerHTML = '<div style="max-width:760px;margin:0 auto"><h2>Schedule</h2><p>' + esc(r.error) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
+  const on = r.status.all_installed;
+  w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>Schedule</h2>'
+    + '<p>Two daily runs update your board. They start on their own, without you opening this page. If the computer was off or asleep, the run happens when it is back.</p>'
+    + '<p>' + (r.runs_ai ? 'Your mode uses your AI account on each run, within the call budget.' : 'Your mode runs without AI on a schedule, so nothing is sent to an AI provider.') + ' If you change mode later, install again.</p>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<label><input type="checkbox" id="s-svc"' + (r.service && r.service.installed ? ' checked' : '') + '> Keep this dashboard running from login at <code>' + esc(r.service ? r.service.url : '') + '</code>'
+    + (r.service && r.service.installed ? (r.service.running ? ' (running now)' : ' (installed, but not answering: check the log in your data folder, logs/web.log)') : '') + '</label>'
+    + '<label style="display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:8px;align-items:center"><span>Morning run</span><input id="s-m" type="time" value="' + esc(r.times.morning) + '"></label>'
+    + '<label style="display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:8px;align-items:center"><span>Midday run</span><input id="s-d" type="time" value="' + esc(r.times.midday) + '"></label>'
+    + '<p>Status: ' + (on ? 'installed' : 'not installed') + ' (' + esc(r.status.os) + '). Reinstall after moving or reinstalling Python.</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-wiz="sinstall">' + (on ? 'Update schedule' : 'Install schedule') + '</button>'
+    + (on ? '<button class="btn" data-wiz="sremove">Remove schedule</button>' : '') + '<button class="btn" data-wiz="snext">Continue</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false;
+}
+async function wizExtension(){
+  const r = await (await fetch('/wizard/extension')).json(), w = $('wiz');
+  const steps = ['Press <b>Prepare</b>. It copies the extension and your confirmed profile into <code>' + esc(r.folder) + '</code>.',
+    'In Chrome open <code>chrome://extensions</code>, switch on <b>Developer mode</b>, press <b>Load unpacked</b> and choose that folder. <!-- TODO screenshots -->',
+    'Open the extension <b>Options</b> and choose your kits folder.', 'Pin the extension. <b>Alt+J</b> opens its side panel.',
+    'Open an application page, sign in yourself, press <b>Fill this page</b>. It never clicks Next or Submit.'];
+  w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>Chrome extension</h2>'
+    + '<p>The extension fills application forms from the facts you confirmed. It stays on this computer.</p>'
+    + '<ol>' + steps.map(x => '<li>' + x + '</li>').join('') + '</ol>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + '<ul>' + r.checks.map(c => '<li>' + (c.ok ? 'Ready' : 'Needs attention') + ': ' + esc(c.check) + ' - ' + esc(c.detail) + '</li>').join('') + '</ul>'
+    + '<p>Chrome itself cannot be checked from here. ' + esc(r.try) + '</p>'
+    + '<label><input id="x-ok" type="checkbox"> It filled a form for me</label>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-wiz="xprep">Prepare</button>'
+    + '<button class="btn" data-wiz="xtest">Test again</button><button class="btn" data-wiz="xnext">Continue</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false;
+}
+async function wizFirstRun(){
+  const w = $('wiz'), st = await (await fetch('/wizard')).json();
+  w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>First run</h2>'
+    + '<p>This builds your first plan from your own mail and calendar. It only reads them: nothing is sent, and no AI is used on this run.</p>'
+    + (st.demo ? '<p>The demo data is still loaded. Remove it first so it does not mix with yours.</p>' : '')
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div><ul id="fr-out"></ul>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + (st.demo ? '<button class="btn" data-wiz="frclear">Remove demo data</button>' : '<button class="btn primary" data-wiz="frrun">Run now</button>')
+    + '<button class="btn" data-wiz="frdone">Finish setup</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false;
+}
+async function wizOpen(){
+  let st = {};
+  try { st = await (await fetch('/wizard')).json(); } catch (e) { return; }
+  const w = $('wiz');
+  const demo = st.demo ? '<button class="btn" data-wiz="clear">Clear demo data</button>' : st.demo_locked ? '' : '<button class="btn" data-wiz="demo">Look around with demo data first</button>';
+  w.innerHTML = '<div style="max-width:560px;margin:0 auto;display:grid;gap:16px"><h2>Welcome</h2>'
+    + '<p>Command Center runs on this computer and keeps your job search in one place. It never sends email or submits an application for you.</p>'
+    + (st.demo_locked ? '<p>Your profile is complete, so the demo is switched off.</p>' : '<p>You can look around with made-up data first, or set up with your own.</p>')
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + (st.demo ? demo : '') + '<button class="btn primary" data-wiz="own">' + (st.demo ? 'Done looking, set up my own' : 'Set up with my own data') + '</button>' + (st.demo ? '' : demo)
+    + '<button class="btn" data-wiz="close">Close</button></div>'
+    + (st.demo ? '<p>Demo data is loaded and marked as demo. Clear it before you add your own.</p>' : '')
+    + '<h3>Jump to a page</h3><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-wiz="gmodes">AI settings</button><button class="btn" data-wiz="gprofile">Your profile and resume</button><button class="btn" data-wiz="gqc">Resume checks</button><button class="btn" data-wiz="grules">Pay and location rules</button><button class="btn" data-wiz="gsched">Schedule and always-on dashboard</button><button class="btn" data-wiz="gbackup">Backup &amp; restore</button></div></div>';
+  w.hidden = false;
+}
+document.addEventListener('change', async e => {
+  if (e.target.id !== 'w-resume' || !e.target.files[0]) return;
+  try { await wizResume(e.target.files[0]); } catch (err) { wizMsg(false, err.message); }
+  e.target.value = '';
+});
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-wiz]');
+  if (!b) return;
+  const a = b.dataset.wiz;
+  const banner = $('wiz-banner'); if (banner) banner.hidden = true;  // a new action starts clean; its own result shows again
+  if (a === 'dismiss') return;
+  if (a === 'open') return wizOpen();
+  if (a === 'close') { $('wiz').hidden = true; return; }
+  try {
+    if (a === 'demo') { await wizCall('/wizard/demo'); await wizCall('/wizard/step', {step: 0, complete: true}); toast('Demo loaded'); $('wiz').hidden = true; await window.ccRefresh?.(); refreshProfileBar(); }
+    else if (a === 'clear') { await wizCall('/wizard/demo/clear'); toast('Demo data cleared'); await window.ccRefresh?.(); await wizOpen(); refreshProfileBar(); }
+    else if (a === 'own') { if ((await (await fetch('/wizard')).json()).demo) await wizCall('/wizard/demo/clear'); await wizCall('/wizard/step', {step: 1, complete: true}); await wizModes(true); }
+    else if (a === 'mode') {
+      const r = await wizCall('/wizard/mode', {name: b.dataset.mode});
+      if (typeof pollMode === 'function') pollMode();
+      if ((await (await fetch('/wizard/ai')).json()).uses_ai) await wizAi(modeOnly ? 'modes' : 'mail');
+      else if (!modeOnly) await wizMail();
+      else { await wizModes(true); wizMsg(r.schedule !== 'failed', 'Mode set. Your data was not changed. ' + (r.message || '')); }
+    }
+    else if (a === 'aipick') await wizAi('modes');
+    else if (a === 'aisave') { const r = await wizCall('/wizard/ai', wizAiBody()); $('ai-k').value = ''; wizMsg(true, 'Saved.' + (r.key_stored_in ? ' Key stored in: ' + r.key_stored_in + (r.key_stored_in === 'file' ? ' (a plain file in your data folder, not encrypted).' : '.') : '') + (r.warning ? ' ' + r.warning : '')); }
+    else if (a === 'aitest') { await wizCall('/wizard/ai', wizAiBody()); $('ai-k').value = ''; wizMsg(true, 'Testing...'); const r = await wizCall('/wizard/ai/test'); wizMsg(r.ok, r.message); }
+    else if (a === 'ainext') { await wizCall('/wizard/ai', wizAiBody()); $('ai-k').value = ''; if (aiAfter === 'modes') await wizModes(true); else await wizMail(); }
+    else if (a === 'prov') await wizMail(b.dataset.k);
+    else if (a === 'mtest' || a === 'msave') {
+      const r = await wizCall(a === 'mtest' ? '/wizard/mail/test' : '/wizard/mail', {host: $('m-host').value, user: $('m-user').value, folder: $('m-folder').value, password: $('m-pw').value});
+      if (a === 'msave') $('m-pw').value = '';
+      wizMsg(true, a === 'msave' ? 'Signed in and saved (password kept in ' + r.stored_in + ').' : 'Signed in. Folder opened.');
+    }
+    else if (a === 'ctest' || a === 'csave') {
+      const r = await wizCall(a === 'ctest' ? '/wizard/calendar/test' : '/wizard/calendar', {url: $('c-url').value});
+      if (a === 'csave') $('c-url').value = '';
+      wizMsg(true, 'Calendar read: ' + r.events_next_14_days + ' events in the next 14 days' + (a === 'csave' ? ', saved.' : '.'));
+    }
+    else if (a === 'gprofile') await wizProfile();
+    else if (a === 'gqc') await wizQc();
+    else if (a === 'grules') await wizRules();
+    else if (a === 'gmodes') await wizModes(true);
+    else if (a === 'gsched') await wizSchedule();
+    else if (a === 'gbackup') await wizBackup();
+    else if (a === 'gkits') await wizKits();
+    else if (a === 'kitsave') await kitsChange(($('kits-path').value || '').trim());
+    else if (a === 'kitreset') await kitsChange('');
+    else if (a === 'bkcreate') { wizMsg(true, 'Creating the backup...'); const r = await wizCall('/backup/create');
+      await wizBackup('<b>Backup created (' + r.files + ' files, ' + bkSize(r.bytes) + ').</b><span>Saved in your data folder as ' + esc(r.name) + '.</span><a href="/backup/download/' + encodeURIComponent(r.name) + '" download>Download a copy to keep somewhere safe</a><span>' + esc(r.notice) + '</span>'); }
+    else if (a === 'bkask') { bkPending = {name: b.dataset.name, where: b.dataset.where || 'data'}; bkConfirm(); }
+    else if (a === 'bkopen') await wizCall('/backup/open', {which: b.dataset.which});
+    else if (a === 'bksettings') { await wizCall('/backup/settings', {keep: parseInt($('bk-keep').value, 10), keep_manual: parseInt($('bk-keepm').value, 10), extra_dir: $('bk-extra').value.trim()});
+      await wizBackup('<b>Housekeeping saved.</b><span>Old backups beyond your limits were removed.</span>'); }
+    else if (a === 'imppreview') await impSend('preview');
+    else if (a === 'impapply') await impSend('apply');
+    else if (a === 'bkaskfile') { const f = $('bk-file').files[0]; if (!f) throw new Error('Choose a .ccbackup file first.'); if (!/\.ccbackup$/i.test(f.name)) throw new Error('That does not look like a backup (.ccbackup).'); bkPending = {file: f}; bkConfirm(); }
+    else if (a === 'bkno') { bkPending = null; $('bk-confirm').innerHTML = ''; }
+    else if (a === 'bkyes') { if (bkPending) await bkRun(); }
+    else if (a === 'next2') { await wizCall('/wizard/skip', {step: 2}); await wizProfile(); }
+    else if (a === 'addjob') $('wjobs').insertAdjacentHTML('beforeend', wizJobRow());
+    else if (a === 'psave') { const r = await wizCall('/wizard/profile', wizProfileForm()); await wizSaveWants(); wizMsg(true, 'Saved. ' + (r.unconfirmed ? r.unconfirmed + ' item(s) not ticked yet, so they are not used.' : 'All items confirmed.')); }
+    else if (a === 'pnext') { await wizCall('/wizard/profile', wizProfileForm()); await wizSaveWants(); await wizQc(); }
+    else if (a === 'qsave') { await wizCall('/wizard/qcrules', wizQcForm()); wizMsg(true, 'Saved.'); }
+    else if (a === 'qnext') { await wizCall('/wizard/qcrules', wizQcForm()); await wizCall('/wizard/skip', {step: 3}); await wizRules(); }
+    else if (a === 'qstarter') { const t = $('q-words'); const have = new Set(t.value.split('\n').map(s => s.trim()).filter(Boolean)); $('wiz')._starter.forEach(x => have.add(x)); t.value = [...have].join('\n'); }
+    else if (a === 'addroute') $('wroutes').insertAdjacentHTML('beforeend', $('wiz')._routeRow());
+    else if (a === 'rsave') { await wizCall('/wizard/rules', wizRulesForm()); wizMsg(true, 'Rules saved.'); }
+    else if (a === 'rnext') { await wizCall('/wizard/rules', wizRulesForm()); await wizCall('/wizard/skip', {step: 4}); await wizSchedule(); }
+    else if (a === 'sinstall') {
+      const want = $('s-svc').checked, had = !!(await (await fetch('/wizard/schedule')).json()).service.installed;
+      await wizCall('/wizard/schedule', {action: 'install', morning: $('s-m').value, midday: $('s-d').value});
+      if (want !== had) await wizCall('/wizard/schedule', {action: want ? 'service_install' : 'service_remove'});
+      await wizSchedule(); wizMsg(true, 'Schedule installed.' + (want !== had ? (want ? ' Dashboard will now start at login.' : ' Dashboard no longer starts at login.') : ''));
+    }
+    else if (a === 'sremove') { await wizCall('/wizard/schedule', {action: 'remove'}); await wizSchedule(); wizMsg(true, 'Schedule removed.'); }
+    else if (a === 'snext') { await wizCall('/wizard/skip', {step: 5}); await wizExtension(); }
+    else if (a === 'xprep') { await wizCall('/wizard/extension', {}); await wizExtension(); wizMsg(true, 'Prepared.'); }
+    else if (a === 'frclear') { await wizCall('/wizard/demo/clear', {}); await window.ccRefresh?.(); await wizFirstRun(); wizMsg(true, 'Demo data removed.'); }
+    else if (a === 'frrun') {
+      const r = await wizCall('/wizard/firstrun', {});
+      $('fr-out').innerHTML = ['Plan built: ' + r.roles + ' roles, ' + r.todos + ' to-dos, ' + r.notes + ' notes.', r.mail ? 'Mail read.' : 'Mail not read (not set up or not reachable).', r.calendar ? 'Calendar read.' : 'Calendar not read (not set up or not reachable).'].concat(r.errors).map(x => '<li>' + esc(x) + '</li>').join('');
+      wizMsg(true, 'First run finished.');
+    }
+    else if (a === 'frdone') { await wizCall('/wizard/finish', {}); toast('Setup finished'); $('wiz').hidden = true; }
+    else if (a === 'xtest') { await wizExtension(); }
+    else if (a === 'xnext') { if ($('x-ok').checked) { await wizCall('/wizard/skip', {step: 6}); await wizFirstRun(); } else { wizMsg(false, 'Tick the box once a form has filled, or press Close to come back later.'); } }
+  } catch (err) { if ($('wiz-err')) wizMsg(false, err.message); else toast(err.message); }
+});
+</script>
+
+</body></html>

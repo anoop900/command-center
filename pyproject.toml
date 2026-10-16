@@ -1,0 +1,23 @@
+[project]
+name = "cc"
+version = "1.0.0"
+description = "Command Center: local-first, AI-agnostic job-search operations."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["keyring>=24", "mcp>=2,<3", "python-docx", "pdfplumber", "openpyxl"]
+
+[project.optional-dependencies]
+dev = ["mcp>=2,<3", "openpyxl", "setuptools>=70.1"]  # everything the test suite and `cc tracker` need; no test is skipped with these
+
+[project.scripts]
+cc = "cc.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["cc", "cc.ai", "cc.rules", "cc.ingest", "cc.kits", "cc.runs"]
+
+[tool.setuptools.package-data]
+"cc.ai" = ["prompts/*.md"]

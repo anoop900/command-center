@@ -1,0 +1,85 @@
+# Example configuration. The setup wizard writes your real config.toml (gitignored).
+# Every value below is a placeholder for a fictional user. Nothing here is required
+# to match anyone's real situation.
+
+[app]
+# title = "Jordan's Command Center"   # optional; default is "<owner_first_name>'s Command Center"
+owner_first_name = "Jordan"
+modules = ["career", "tasks", "relationships", "offers"]   # remove one to hide it
+
+[scoring]
+# Model returns 0-100 per dimension; code computes the weighted overall score.
+weights = { technical = 0.30, experience = 0.25, seniority = 0.15, career = 0.30 }
+kit_threshold = 80        # build an application kit at or above this overall score
+top_n = 3                 # also build kits for the top N eligible roles of each run
+top_n_min = 60            # ...but only if they score at least this
+bands = [[75, "Strong fit"], [60, "Good fit"], [45, "Moderate fit"], [30, "Weak fit"], [0, "Poor fit"]]
+
+[pay]
+currency = "CAD"          # your home currency; all floors are in it
+floor_salary = 120000     # annual base; stated max below this = FAIL
+floor_hourly = 80         # contract rate; stated max below this = FAIL
+hours_per_year = 1900     # used to compare hourly and salaried offers
+flag_within = 0.05        # up to 5% below the floor = FLAG (your call), further below = FAIL
+fx = { USD = 1.37, EUR = 1.50, GBP = 1.75 }   # 1 unit of foreign currency in home currency
+
+[location]
+home_country = "CA"
+onsite_regions = ["Greater Toronto Area"]     # on-site or hybrid is fine only here
+region = "GTA"                                # short name the runbook uses in scored.json
+region_name = "Greater Toronto Area"
+remote_countries = ["CA", "US"]               # remote roles employed from these countries
+relocation_channels = ["Intl relocation"]     # channels where on-site abroad is intended
+onsite_via_route = true                       # on-site/hybrid abroad is fine where a work_authorization route exists
+
+# One block per country you may work in. The home country needs no block.
+[[work_authorization]]
+country = "US"
+route = "TN"                                  # free text shown in flags
+on_silent = "flag"                            # posting says nothing: "flag" or "fail"
+on_excludes = "fail"                          # posting requires citizenship / green card
+flag_people_management = true                 # route may not cover pure management roles
+flag_title_patterns = ["director", "vp", "vice president", "head of", "chief"]
+note = "Check category fit with an immigration lawyer before accepting an offer."
+
+# Public job boards of target companies (pipeline/boards.py, engine tool boards_poll).
+# Targets carry {company, ats: greenhouse|lever|ashby, token}; find tokens with boards_discover.
+[boards]
+include = ["director", "head of", "vp", "vice president", "manager", "architect", "principal"]   # title regexes
+exclude = ["software engineer", "intern", "sales", "account executive"]
+search = ["director", "manager", "architect", "head of"]   # Workday search terms (one query of 20 each, max 6)
+locations = ["canada", "toronto", "ontario", "remote"]   # substrings; "remote" admits remote roles anywhere
+max_age_days = 14
+max_results = 8                 # per board call (the PC bridge allows 60 s per call)
+text_chars = 4000
+
+# Who the runbook works for (fills {{owner.*}} in skills/job-search/SKILL.md). Private: real values never in the repo.
+[owner]
+name = "Jordan Example"
+first_name = "Jordan"
+upper = "JORDAN"
+his = "their"
+he = "they"
+gmail = "jordan.example@gmail.com"          # the Gmail the runs read (connector)
+public_email = "jordan@example.com"         # the address that forwards into it
+website = "example.com"
+resume_file = "Jordan_Example_Resume.pdf"
+
+[dashboard]
+url = "https://claude.ai/artifact/<your-dashboard-id>"
+
+[paths]
+root = 'C:\Users\you\Job Hunting'        # folder on your PC that holds kits and exports
+root_name = "Job Hunting"
+kits = "Daily"                             # dated kit folders live here (the extension's Options must match)
+
+[pc]
+sync = false
+
+[schedule]
+morning = "5:40"
+midday = "2:40"
+tz_name = "Toronto"
+
+[repo]
+name = "<you>/<your-repo>"

@@ -1,0 +1,29 @@
+# Personal data never enters this repo.
+private/
+**/profile.json
+*.xlsx
+*.pdf
+*.docx
+Candidate_Profile*.md
+example_content.json
+content*.json
+qc_rules.json
+run.json
+Application_Kit.md
+*.ics
+!tests/fixtures/**/*.ics
+node_modules/
+__pycache__/
+config/config.toml
+config.toml
+# Engine data (personal): never committed
+data/
+*.db
+*.db-wal
+*.db-shm
+*.egg-info/
+.venv/
+
+build/
+dist/
+*.whl

@@ -1,0 +1,48 @@
+<!doctype html><html><head><title>Teladoc Health - Apply - Workday</title></head><body>
+<div data-automation-id="applyFlowPage">
+<div data-automation-id="formField-legalName--firstName"><label for="name--legalName--firstName">First Name<abbr>*</abbr></label><input id="name--legalName--firstName" aria-required="true"></div>
+<div data-automation-id="formField-legalName--lastName"><label for="name--legalName--lastName">Last Name*</label><input id="name--legalName--lastName" aria-required="true"></div>
+<div data-automation-id="formField-preferredName"><label for="pref">Preferred First Name</label><input id="pref"></div>
+<div data-automation-id="formField-addressLine1"><label for="address--addressLine1">Address Line 1*</label><input id="address--addressLine1"></div>
+<div data-automation-id="formField-city"><label for="address--city">City*</label><input id="address--city" value="Toronto"></div>
+<div data-automation-id="formField-countryRegion"><label id="l-prov">Province or Territory*</label><button aria-haspopup="listbox" aria-labelledby="l-prov" data-options="Alberta|Ontario|Quebec">Select One</button></div>
+<div data-automation-id="formField-postalCode"><label for="address--postalCode">Postal Code*</label><input id="address--postalCode"></div>
+<div data-automation-id="formField-email"><label for="email">Email Address*</label><input id="email"></div>
+<div data-automation-id="formField-phoneType"><label id="l-pt">Phone Device Type*</label><button aria-haspopup="listbox" aria-labelledby="l-pt" data-options="Mobile|Home">Select One</button></div>
+<div data-automation-id="formField-countryPhoneCode"><label for="cpc">Country Phone Code*</label><input id="cpc" data-automation-id="searchBox" data-options="Canada (+1)|India (+91)|United States of America (+1)"></div>
+<div data-automation-id="formField-phoneNumber"><label for="phone--phoneNumber">Phone Number*</label><input id="phone--phoneNumber"></div>
+<div data-automation-id="formField-source"><label for="src">How Did You Hear About Us?*</label><input id="src" data-automation-id="searchBox" data-options="Job Board|Company Website|LinkedIn|Employee Referral"></div>
+<div data-automation-id="formField-q1"><label id="q1">Are you legally eligible to work in Canada?</label><button aria-haspopup="listbox" aria-labelledby="q1" data-options="Yes|No">Select One</button></div>
+<div data-automation-id="formField-q2"><label id="q2">Will you now or in the future require sponsorship for employment visa status?</label><button aria-haspopup="listbox" aria-labelledby="q2" data-options="Yes|No">Select One</button></div>
+<div data-automation-id="formField-q3"><label id="q3">Are you authorized to work in the United States?</label><button aria-haspopup="listbox" aria-labelledby="q3" data-options="Yes|No">Select One</button></div>
+<div data-automation-id="formField-q4"><label for="sal">What are your salary expectations?</label><input id="sal"></div>
+<div data-automation-id="formField-q5"><fieldset><legend>Have you previously worked for Teladoc Health?</legend><input type="radio" name="prev" id="p1"><label for="p1">Yes</label><input type="radio" name="prev" id="p2"><label for="p2">No</label></fieldset></div>
+<div data-automation-id="formField-q6"><fieldset><legend>Are you willing to relocate?</legend><input type="radio" name="rel" id="r1"><label for="r1">Yes</label><input type="radio" name="rel" id="r2"><label for="r2">No</label></fieldset></div>
+<div data-automation-id="formField-q7"><label id="q7">What is your highest level of education?</label><button aria-haspopup="listbox" aria-labelledby="q7" data-options="High School|College Diploma|Bachelor's Degree|Master's Degree">Select One</button></div>
+<div data-automation-id="formField-q8"><fieldset><legend>Have you previously applied to Teladoc Health?</legend><input type="radio" name="pa" id="pa1"><label for="pa1">Yes</label><input type="radio" name="pa" id="pa2"><label for="pa2">No</label></fieldset></div>
+<div data-automation-id="formField-q9"><label id="q9">Are you a citizen of the United States?</label><button aria-haspopup="listbox" aria-labelledby="q9" data-options="Yes|No">Select One</button></div>
+<div data-automation-id="formField-q10"><label id="q10">Do you have a Bachelor's degree?</label><button aria-haspopup="listbox" aria-labelledby="q10" data-options="Yes|No">Select One</button></div>
+<div data-automation-id="formField-q11"><label id="q11">School or University</label><button aria-haspopup="listbox" aria-labelledby="q11" data-options="University of Toronto|McGill University|Other">Select One</button></div>
+<div data-automation-id="formField-q12"><label id="q12">Will you require sponsorship to work in the United States?</label><button aria-haspopup="listbox" aria-labelledby="q12" data-options="Yes|No">Select One</button></div>
+<div data-automation-id="formField-q13"><label id="q13">Country of citizenship</label><button aria-haspopup="listbox" aria-labelledby="q13" data-options="India|Canada|United States">Select One</button></div>
+<div data-automation-id="formField-resume"><label>Resume/CV</label><input type="file" data-automation-id="file-upload-input-ref"></div>
+<div data-automation-id="formField-gender"><label id="g">Gender</label><button aria-haspopup="listbox" aria-labelledby="g" data-options="Male|Female|I do not wish to answer">Select One</button></div>
+<section><h3>Disability status</h3><input type="checkbox" id="d1"><label for="d1">Yes, I have a disability</label><input type="checkbox" id="d2"><label for="d2">I do not want to answer</label></section>
+<input type="checkbox" id="terms"><label for="terms">I have read and consent to the terms</label>
+<button data-automation-id="bottom-navigation-next-button" id="next">Save and Continue</button>
+<button id="submit">Submit</button>
+</div>
+<script>
+window.clicked=[];
+document.getElementById('next').onclick=()=>clicked.push('next');
+document.getElementById('submit').onclick=()=>clicked.push('submit');
+function openList(anchor, opts, onPick){
+  document.querySelectorAll('[role=listbox]').forEach(x=>x.remove());
+  const ul=document.createElement('ul'); ul.setAttribute('role','listbox');
+  opts.forEach(o=>{const li=document.createElement('li'); li.setAttribute('role','option'); li.textContent=o; li.onclick=()=>{onPick(o); ul.remove();}; ul.appendChild(li);});
+  setTimeout(()=>anchor.parentElement.appendChild(ul),200);
+}
+document.querySelectorAll('button[aria-haspopup]').forEach(b=>b.onclick=()=>openList(b,b.dataset.options.split('|'),o=>b.textContent=o));
+document.querySelectorAll('[data-automation-id=searchBox]').forEach(i=>i.addEventListener('keydown',e=>{ if(e.key!=='Enter')return;
+  const q=i.value.toLowerCase(); openList(i,i.dataset.options.split('|').filter(o=>o.toLowerCase().includes(q.split(' ')[0])),o=>{const s=document.createElement('div');s.setAttribute('data-automation-id','selectedItem');s.textContent=o;i.parentElement.appendChild(s);i.value='';});}));
+</script></body></html>

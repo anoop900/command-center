@@ -1,0 +1,25 @@
+Jordan Example
+Exampleton, BC | 555-010-0199 | jordan@example.com | linkedin.com/in/jordan-example | example.com
+
+SUMMARY
+Director of program delivery with 15+ years in operations. Leads cross-functional teams.
+
+EXPERIENCE
+Director, Program Delivery, Northwind Logistics, Exampleton (Mar 2021 - present)
+- Leads a 22-person delivery team with 3 managers.
+- Rolled out a new scheduling process across 300 sites over 14 months.
+- Cut operating costs 18% with quarterly budget reviews.
+
+Senior Manager, Operations, Contoso Health, Remote (Jun 2017 - Feb 2021)
+- Ran a 9-person operations team. Built the on-call and incident process.
+- Led the consolidation of 120 workstreams into one shared plan.
+
+Operations Lead, Fabrikam Retail, Sampleford (2013 - 2017)
+- Led 4 coordinators. Standardized 150 site checklists. Built the first reporting templates.
+
+SKILLS
+Planning, budgeting, scheduling, vendor management, reporting
+
+EDUCATION
+Bachelor of Science, Business Administration, Example University (2005-2009)
+PMP. Lean Six Sigma Green Belt.

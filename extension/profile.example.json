@@ -1,0 +1,43 @@
+{
+  "_source": "EXAMPLE ONLY. Generate the real profile.json with tools/make_profile.py from your private profile; it is gitignored.",
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "email": "jane@example.com",
+  "phone": "555-555-0100",
+  "address1": "1 Example Street",
+  "city": "Exampleton",
+  "province": "Ontario",
+  "provinceCode": "ON",
+  "postalCode": "A1A 1A1",
+  "country": "Canada",
+  "linkedin": "https://www.linkedin.com/in/example",
+  "website": "https://example.com",
+  "relocate": "Yes",
+  "startDate": "Immediately",
+  "clearance": "<clearance line>",
+  "education": "<highest education line>",
+  "englishFluent": "Yes",
+  "frenchFluent": "No",
+  "citizenship": "Canada",
+  "usAuthText": "Canadian citizen; would work under TN status (USMCA)",
+  "usAuthorizedNow": "No",
+  "bachelorYesNo": "Yes",
+  "school": "Example University",
+  "schoolAlt": "Example State University",
+  "schoolOtherText": "Example University, Exampleland",
+  "fieldOfStudy": "Computer Engineering",
+  "eduStart": "1990",
+  "eduEnd": "1993",
+  "previouslyApplied": "No",
+  "formerEmployers": [
+    "Example Bank",
+    "Sample Corp",
+    "TD Bank"
+  ],
+  "rehire": {
+    "Example Bank": "Eligible"
+  },
+  "authorizedHome": "Yes",
+  "sponsorshipHome": "No",
+  "phoneCountryCode": "1"
+}

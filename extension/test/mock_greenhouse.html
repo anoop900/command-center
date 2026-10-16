@@ -1,0 +1,20 @@
+<!doctype html><html><head><title>Job Application for Director at Example</title></head><body>
+<form id="application_form">
+<label>First Name *<input type="text" id="first_name"></label>
+<label>Last Name *<input type="text" id="last_name"></label>
+<label>Email *<input type="text" id="email"></label>
+<label>Phone<input type="text" id="phone"></label>
+<div id="resume_fieldset"><label for="resume">Resume/CV</label><input type="file" id="resume"></div>
+<div id="cl"><label for="cover">Cover Letter</label><input type="file" id="cover"></div>
+<label>LinkedIn Profile<input type="text" id="q_li"></label>
+<label>Website<input type="text" id="q_web"></label>
+<label for="q1">Are you legally authorized to work in Canada?</label><select id="q1"><option value="">--</option><option value="1">Yes</option><option value="0">No</option></select>
+<label for="q2">Will you require visa sponsorship?</label><select id="q2"><option value="">--</option><option value="1">Yes</option><option value="0">No</option></select>
+<label for="q3">Desired salary</label><input type="text" id="q3">
+<label for="q4">Why do you want to work here?</label><textarea id="q4"></textarea>
+<label for="q5">Race</label><select id="q5"><option value="">Please select</option><option value="a">Asian</option><option value="d">Decline To Self Identify</option></select>
+<label for="q6">Veteran Status</label><select id="q6"><option value="">Please select</option><option value="n">I am not a protected veteran</option><option value="d">I don't wish to answer</option></select>
+<input type="submit" id="submit_app" value="Submit Application">
+</form>
+<script>window.clicked=[];document.getElementById('submit_app').addEventListener('click',()=>clicked.push('submit'));document.getElementById('application_form').addEventListener('submit',e=>{e.preventDefault();clicked.push('formsubmit')});</script>
+</body></html>

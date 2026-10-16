@@ -1,0 +1,2 @@
+# A downloaded zip delivers files as stored; cmd.exe needs CRLF line endings in batch files.
+*.cmd text eol=crlf

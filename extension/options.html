@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Job Apply Filler setup</title><link rel="stylesheet" href="ui.css"></head>
+<body class="wide">
+  <h1>Job Apply Filler setup</h1>
+  <p>1. Name of the folder that holds your dated kit folders (default <code>Daily</code>):</p>
+  <input id="kits" size="20" value="Daily">
+  <p>2. Pick the folder that contains it. Chrome only lets the extension read files inside it.</p>
+  <button id="pick" class="primary">Choose folder</button>
+  <p id="status" class="note"></p>
+  <p>3. Dashboard link (for the "mark applied" button):</p>
+  <input id="dash" size="60">
+  <button id="save">Save</button>
+  <p class="note">Your answers come from <code>profile.json</code> in the extension folder, generated from your profile by <code>tools/make_profile.py</code>.</p>
+  <script src="idb.js"></script>
+  <script src="options.js"></script>
+</body></html>

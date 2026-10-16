@@ -1,0 +1,20 @@
+<!doctype html><html><head><title>Acme Robotics - Director, Cloud</title></head><body>
+<div class="ashby-application-form-container">
+<div class="ashby-application-form-field-entry"><label class="ashby-application-form-question-title" for="_systemfield_name">Name</label><input id="_systemfield_name" type="text"></div>
+<div class="ashby-application-form-field-entry"><label class="ashby-application-form-question-title" for="_systemfield_email">Email</label><input id="_systemfield_email" type="email"></div>
+<div class="ashby-application-form-field-entry"><label class="ashby-application-form-question-title" for="_systemfield_resume">Resume</label><input id="_systemfield_resume" type="file"></div>
+<div class="ashby-application-form-field-entry"><label class="ashby-application-form-question-title" for="loc">Location</label><input id="loc" role="combobox" aria-autocomplete="list" type="text"></div>
+<div class="ashby-application-form-field-entry"><label class="ashby-application-form-question-title">Are you legally authorized to work in Canada?</label><div class="_yesno"><button type="button" id="ay">Yes</button><button type="button" id="an">No</button></div></div>
+<div class="ashby-application-form-field-entry"><label class="ashby-application-form-question-title">Will you now or in the future require visa sponsorship?</label><div class="_yesno"><button type="button" id="sy">Yes</button><button type="button" id="sn">No</button></div></div>
+<div class="ashby-application-form-field-entry"><label class="ashby-application-form-question-title">Do you have a bachelor's degree or equivalent experience?</label><div class="_yesno"><button type="button" id="by">Yes</button><button type="button" id="bn">No</button></div></div>
+<div class="ashby-application-form-field-entry"><label class="ashby-application-form-question-title" for="sal">Desired salary</label><input id="sal" type="text"></div>
+<button type="submit" id="submit">Submit Application</button>
+</div>
+<script>
+window.clicked=[];document.getElementById('submit').onclick=()=>clicked.push('submit');
+document.querySelectorAll('._yesno button').forEach(b=>b.onclick=()=>{[...b.parentElement.children].forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');});
+const loc=document.getElementById('loc');
+loc.addEventListener('input',()=>{document.querySelectorAll('[role=listbox]').forEach(x=>x.remove());const ul=document.createElement('ul');ul.setAttribute('role','listbox');
+ ['Exampleton, Ontario, Canada','Exampleton, Texas, United States'].forEach(o=>{const li=document.createElement('li');li.setAttribute('role','option');li.textContent=o;li.onclick=()=>{loc.value=o;ul.remove();};ul.appendChild(li);});
+ setTimeout(()=>loc.parentElement.appendChild(ul),150);});
+</script></body></html>
