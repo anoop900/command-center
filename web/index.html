@@ -313,18 +313,18 @@ function buildState(r){
   const j = jobOf('kit', r); if (!j || j.seen || !JOBSTATE[j.state]) return null;
   if (!['running', 'done'].includes(j.state) && hasKit(r)) return null; // a failed or stalled rebuild does not matter once a kit exists
   if (j.state !== 'running' && !['new', 'ready'].includes(stageOf(r))) return null; // applied, closed or skipped: a failed build is no longer news
-  return {s: JOBSTATE[j.state], b: j, m: buildMin(j) ?? 0, why: j.reason || ''};
+  return {s: JOBSTATE[j.state], b: j, m: buildMin(j) ?? 0, why: j.reason || '', fix: j.fix || '', act: j.action || ''};
 }
 // Kit review: the job row says how it went; the review itself arrives in KREV/r.review.
 function reviewState(r){
   const j = jobOf('review', r); if (!j || j.seen || !JOBSTATE[j.state]) return null;
   const s = j.state === 'running' ? 'reviewing' : j.state === 'done' ? 'done' : JOBSTATE[j.state];
-  return {s, v: j, rv: r.review, m: buildMin(j) ?? 0, why: j.reason || ''};
+  return {s, v: j, rv: r.review, m: buildMin(j) ?? 0, why: j.reason || '', fix: j.fix || '', act: j.action || ''};
 }
 // Cover letter (on request): the job row says how it went; the file arrives in the kit's downloads.
 function coverState(r){
   const j = jobOf('cover', r); if (!j || j.seen || !JOBSTATE[j.state]) return null;
-  return {s: j.state === 'running' ? 'writing' : JOBSTATE[j.state], v: j, m: buildMin(j) ?? 0, why: j.reason || ''};
+  return {s: j.state === 'running' ? 'writing' : JOBSTATE[j.state], v: j, m: buildMin(j) ?? 0, why: j.reason || '', fix: j.fix || '', act: j.action || ''};
 }
 // Reviewed edits to the kit: nothing changes until the user presses Apply. Resume edits are shown but not applicable here.
 function reviewEdits(r){
@@ -339,7 +339,7 @@ async function applyEdit(key, i){
   try {
     const res = await fetch('/review/apply', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({role: key, index: i})});
     const j = await res.json();
-    if (!res.ok) return toast(j.error || 'Could not apply that edit.');
+    if (!res.ok) return toast(errMsg(j) || 'Could not apply that edit.');
     if (KREV[key]) { KREV[key].applied = j.applied; KREV[key].fixed = j.applied.length; }
     toast('Applied to the kit. Rebuild the resume to see it there.'); render(); openRole(key);
   } catch (e) { toast('Could not apply that edit.'); }
@@ -396,6 +396,7 @@ function buildTag(r){
   if (x.s === 'waiting') return `<span class="tag working">Waiting for your pasted answer</span>`;
   return `<span class="tag done">Kit ready</span>`;
 }
+const FIXBTN = {profile: '<button class="btn" data-wiz="gprofile">Open Profile</button>', qc: '<button class="btn" data-wiz="gqc">Open Resume checks</button>', modes: '<button class="btn" data-wiz="gmodes">Open Modes</button>', backup: '<button class="btn" data-wiz="gbackup">Open Backup</button>', kits: '<button class="btn" data-wiz="gkits">Open Kit folder</button>'};
 function jobRow(r, x, kind){
   const who = `<b>${esc(r.company)}</b> · ${esc(r.title)}`, what = kind === 'review' ? 'review' : kind === 'cover' ? 'cover letter' : 'kit', k = esc(r.key);
   const run = kind === 'review' ? 'data-review' : kind === 'cover' ? 'data-cover' : 'data-build', seen = kind === 'review' ? 'data-rseen' : kind === 'cover' ? 'data-cseen' : 'data-bseen';
@@ -404,7 +405,7 @@ function jobRow(r, x, kind){
   if (x.s === 'building' || x.s === 'reviewing' || x.s === 'writing') {
     msg = `<span><span class="dot"></span>${kind === 'review' ? 'Reviewing the kit' : kind === 'cover' ? 'Writing the cover letter' : 'Building the kit'} for ${who}. Started ${esc(hhmm(x.v ? x.v.ts : x.b.ts))}. This runs here; you can keep using Command Center.</span>`; st = 'building';
   } else if (x.s === 'failed') {
-    msg = `<span>The ${what} for ${who} did not finish. ${esc(x.why || 'Try again.')}</span>`; acts = `<button class="btn warn" ${run}="${k}">Try again</button>${dismiss}`; st = 'slow';
+    msg = `<span>The ${what} for ${who} did not finish. ${esc(x.why || 'Something went wrong.')} ${esc(x.fix || 'Press Try again.')}</span>`; acts = `${FIXBTN[x.act] || ''}<button class="btn warn" ${run}="${k}">Try again</button>${dismiss}`; st = 'slow';
   } else if (x.s === 'needs_posting') {
     msg = `<span>To ${kind === 'review' ? 'review the kit' : kind === 'cover' ? 'write the cover letter' : 'build the kit'} for ${who}, paste the job posting text. ${esc(x.why || '')}</span>`; acts = `<button class="btn primary" data-posting="${k}" data-kind="${kind}">Paste posting</button>${dismiss}`; st = 'slow';
   } else if (x.s === 'waiting') {
@@ -571,7 +572,7 @@ function renderMode(){
   const el = $('modepanel');
   if (!MODE) { el.hidden = true; return; }
   el.hidden = false;
-  if (MODE.error) { el.innerHTML = `<div class="row"><span class="badge">Mode</span><span>${esc(MODE.error)}</span></div>`; return; }
+  if (MODE.error) { el.innerHTML = `<div class="row"><span class="badge">Mode</span><span>${esc(errMsg(MODE))}</span></div>`; return; }
   const list = (h, xs, f) => xs.length ? `<div><b>${h}</b><ul>${xs.map(f).join('')}</ul></div>` : '';
   el.innerHTML = `<div class="row"><span class="badge">${esc(MODE.label)}</span>` +
     `<button class="btn" id="mode-up">${MODE.next ? 'Upgrade to ' + esc(MODE.next.label) : 'Change mode'}</button>` + `</div>` +
@@ -669,7 +670,7 @@ async function startJob(kind, key, posting){
   try {
     const res = await fetch('/job', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({kind, key: docId(key), posting: posting || ''})});
     const j = await res.json();
-    if (!res.ok) throw new Error(j.error || 'failed');
+    if (!res.ok) throw new Error(errMsg(j) || 'failed');
     JOBS[id] = {...j, seen: false}; render();
     if (j.state === 'needs_posting') openPosting(key, kind, j.reason);
     else if (j.state === 'running') toast(`${kind === 'review' ? 'Reviewing the' : kind === 'cover' ? 'Writing the cover letter for the' : 'Building the'} ${r.company} ${kind === 'cover' ? 'role' : 'kit'}. Progress shows at the top of Today.`);
@@ -698,7 +699,7 @@ async function addRole(build){
     const res = await fetch('/add-role', {method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({company: v('ar-co'), title: v('ar-title'), link: v('ar-link'), posting: v('ar-posting'), build})});
     const j = await res.json();
-    if (!res.ok) return err(j.error || 'Could not add the role.');
+    if (!res.ok) return err(errMsg(j) || 'Could not add the role.');
     closeDrawer();
     if (j.created === false && j.duplicate_of) return toast('That role is already on the board.');
     toast(build ? 'Role added. Building the kit; progress shows at the top of Today.' : 'Role added to the Job board.');
@@ -881,7 +882,7 @@ async function ask(){
     out.hidden = false; out.textContent = 'Thinking...'; $('ask').disabled = true;
     try {
       const r = await askSvc.ask(q, context().slice(0, 30000));
-      out.textContent = r.answer || (r.status === 'waiting' ? 'Waiting for a pasted answer. See the AI cards.' : r.reason || r.error || 'Could not answer right now.');
+      out.textContent = r.answer || (r.status === 'waiting' ? 'Waiting for a pasted answer. See the AI cards.' : r.reason || errMsg(r) || 'Could not answer right now.');
     } catch (e) { out.textContent = 'Could not answer right now.'; }
     finally { $('ask').disabled = false; }
     return;
@@ -939,7 +940,10 @@ async function draft(key){
   catch (e) { note.textContent = 'Could not write a draft right now.'; }
   finally { $('fu-go').disabled = false; }
 }
-function toast(t){ const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2600); }
+function toast(t, ms){ const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, ms || Math.min(2600 + String(t).length * 40, 12000)); }
+// A server error is a plain message plus one next step ({error, fix}); show both so the user always knows what to do.
+function errMsg(j){ return j && j.error ? String(j.error) + (j.fix ? ' ' + j.fix : '') : ''; }
+window.addEventListener('unhandledrejection', e => { const m = e.reason && e.reason.message; toast(!m || /fetch|network|load failed/i.test(m) ? 'Command Center did not answer. Check the window where you started it is still open, then reload this page.' : m); });
 function render(){ renderToday(); renderWeek(); renderBoard(); renderPeople(); renderOffers(); renderTasks(); renderReqs(); }
 function openTile(go){
   if (go === 'todos') { show('today'); $('todo-h').scrollIntoView({block: 'start'}); return; }
@@ -1055,7 +1059,7 @@ show('today'); render(); renderCoach();
 async function wizCall(path, body){
   const r = await fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})});
   const j = await r.json().catch(() => ({error: 'Unreadable reply'}));
-  if (!r.ok) throw new Error(j.error || 'Something went wrong');
+  if (!r.ok) throw new Error(errMsg(j) || 'Something went wrong');
   if (/^\/wizard\/(profile|resume|rules)$/.test(path)) refreshProfileBar();
   return j;
 }
@@ -1170,7 +1174,7 @@ var COACH = null;
 async function coachLoad(post, path, body){
   const r = await fetch(path, post ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})} : undefined);
   const j = await r.json().catch(() => ({error: 'Unreadable reply'}));
-  if (!r.ok) throw new Error(j.error || 'Something went wrong');
+  if (!r.ok) throw new Error(errMsg(j) || 'Something went wrong');
   return j;
 }
 function praiseToast(t){ const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 7000); }
@@ -1244,7 +1248,7 @@ let aiAfter = 'mail';  // where Continue goes from the AI provider page: 'mail' 
 async function wizAi(after){
   aiAfter = after || aiAfter;
   const o = await (await fetch('/wizard/ai')).json(), w = $('wiz');
-  if (o.error) { w.innerHTML = '<div style="max-width:700px;margin:0 auto"><h2>AI provider</h2><p>' + esc(o.error) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
+  if (o.error) { w.innerHTML = '<div style="max-width:700px;margin:0 auto"><h2>AI provider</h2><p>' + esc(errMsg(o)) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
   const cur = o.presets.find(p => p.id === o.current) || o.presets[0];
   const opts = o.presets.map(p => '<option value="' + esc(p.id) + '"' + (p.id === cur.id ? ' selected' : '') + '>' + esc(p.label) + (p.installed === false ? ' (not found on this computer)' : '') + '</option>').join('');
   w.innerHTML = '<div style="max-width:700px;margin:0 auto;display:grid;gap:12px"><h2>Choose your AI provider</h2>'
@@ -1305,7 +1309,7 @@ function wizJobRow(j){
   j = j || {};
   const inp = (k, ph) => '<input data-j="' + k + '" placeholder="' + ph + '" value="' + esc(j[k] || '') + '" autocomplete="off" style="min-width:0">';
   return '<div class="wjob" style="border:1px solid var(--line);border-radius:8px;padding:8px;display:grid;gap:6px">'
-    + '<div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">' + inp('employer', 'Employer') + inp('title', 'Exact title') + inp('dates', 'Dates, e.g. 2019 - 2023') + '</div>'
+    + '<div style="display:grid;gap:6px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">' + inp('employer', 'Employer') + inp('title', 'Exact title') + inp('dates', 'Dates, e.g. Aug 2024 - Present') + '</div>'
     + '<textarea data-j="facts" rows="3" placeholder="True facts about this job, one per line (numbers, team size, tools, results)">' + esc((j.facts || []).join('\n')) + '</textarea>'
     + '<label><input type="checkbox" data-j="ok"' + (j.ok ? ' checked' : '') + '> I confirm these are true</label></div>';
 }
@@ -1325,7 +1329,7 @@ async function wizResume(file){
 }
 async function wizQc(){
   const r = await (await fetch('/wizard/qcrules')).json(), w = $('wiz');
-  if (r.error) { w.innerHTML = '<div style="max-width:760px;margin:0 auto"><p role="alert">' + esc(r.error) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
+  if (r.error) { w.innerHTML = '<div style="max-width:760px;margin:0 auto"><p role="alert">' + esc(errMsg(r)) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
   const f = r.form, lines = a => esc((a || []).join('\n')), v = x => esc(x == null ? '' : String(x));
   const row = (label, ctl, hint) => '<label style="display:grid;grid-template-columns:minmax(140px,1fr) 2fr;gap:8px;align-items:center"><span>' + label + (hint ? '<br><small>' + hint + '</small>' : '') + '</span>' + ctl + '</label>';
   w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>Resume checks</h2>'
@@ -1466,7 +1470,7 @@ async function draftSend(keepalive){
   if ($('wiz').hidden || !document.querySelector('#wiz [data-f]')) return;
   try {
     const r = await fetch('/wizard/draft', {method: 'POST', keepalive: !!keepalive, headers: {'Content-Type': 'application/json'}, body: JSON.stringify({form: 'profile', data: wizProfileForm()})});
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'not saved');
+    if (!r.ok) throw new Error(errMsg(await r.json().catch(() => ({}))) || 'not saved');
     draftNote('Draft saved. Press Save profile to use it.');
   } catch (e) { draftNote('Draft not saved: ' + e.message, true); }
 }
@@ -1543,7 +1547,7 @@ async function impSend(mode){
   if (!impFile) throw new Error('Choose a file first.');
   const r = await fetch('/import-other/' + mode + '?name=' + encodeURIComponent(impFile.name), {method: 'POST', headers: {'Content-Type': 'application/octet-stream'}, body: impFile});
   const j = await r.json().catch(() => ({error: 'Unreadable reply'}));
-  if (!r.ok) throw new Error(j.error || 'Import failed');
+  if (!r.ok) throw new Error(errMsg(j) || 'Import failed');
   const o = $('imp-out');
   if (mode === 'apply') {
     impFile = null;
@@ -1566,7 +1570,7 @@ async function bkRun(){
   if (p.file) r = await fetch('/backup/restore?replace=1', {method: 'POST', headers: {'Content-Type': 'application/octet-stream'}, body: p.file});
   else r = await fetch('/backup/restore-local', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: p.name, where: p.where || 'data', replace: true})});
   const j = await r.json().catch(() => ({error: 'Unreadable reply'}));
-  if (!r.ok) throw new Error(j.error || 'Restore failed');
+  if (!r.ok) throw new Error(errMsg(j) || 'Restore failed');
   const keep = j.safety_backup ? '<span><b>Your previous data was saved to:</b></span><code style="word-break:break-all">' + esc(j.safety_backup) + '</code><span>To go back to it, restore that file from the list below.</span>' : '';
   const again = j.reenter && j.reenter.length ? '<span><b>Enter these again in Setup:</b> ' + esc(j.reenter.join(', ')) + '.</span>' : '';
   await wizBackup('<b>Restored ' + j.restored + ' files.</b>' + keep + '<span>' + esc(j.notice) + '</span>' + again);
@@ -1574,7 +1578,7 @@ async function bkRun(){
 }
 async function wizSchedule(){
   const r = await (await fetch('/wizard/schedule')).json(), w = $('wiz');
-  if (r.error) { w.innerHTML = '<div style="max-width:760px;margin:0 auto"><h2>Schedule</h2><p>' + esc(r.error) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
+  if (r.error) { w.innerHTML = '<div style="max-width:760px;margin:0 auto"><h2>Schedule</h2><p>' + esc(errMsg(r)) + '</p><button class="btn" data-wiz="close">Close</button></div>'; w.hidden = false; return; }
   const on = r.status.all_installed;
   w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>Schedule</h2>'
     + '<p>Two daily runs update your board. They start on their own, without you opening this page. If the computer was off or asleep, the run happens when it is back.</p>'
@@ -1693,7 +1697,7 @@ document.addEventListener('click', async e => {
     else if (a === 'bkyes') { if (bkPending) await bkRun(); }
     else if (a === 'next2') { await wizCall('/wizard/skip', {step: 2}); await wizProfile(); }
     else if (a === 'addjob') $('wjobs').insertAdjacentHTML('beforeend', wizJobRow());
-    else if (a === 'psave') { const r = await wizCall('/wizard/profile', wizProfileForm()); await wizSaveWants(); wizMsg(true, 'Saved. ' + (r.unconfirmed ? r.unconfirmed + ' item(s) not ticked yet, so they are not used.' : 'All items confirmed.')); }
+    else if (a === 'psave') { const r = await wizCall('/wizard/profile', wizProfileForm()); await wizSaveWants(); wizMsg(!(r.date_warnings || []).length, 'Saved. ' + (r.unconfirmed ? r.unconfirmed + ' item(s) not ticked yet, so they are not used.' : 'All items confirmed.') + ' ' + (r.date_warnings || []).join(' ')); }
     else if (a === 'pnext') { await wizCall('/wizard/profile', wizProfileForm()); await wizSaveWants(); await wizQc(); }
     else if (a === 'qsave') { await wizCall('/wizard/qcrules', wizQcForm()); wizMsg(true, 'Saved.'); }
     else if (a === 'qnext') { await wizCall('/wizard/qcrules', wizQcForm()); await wizCall('/wizard/skip', {step: 3}); await wizRules(); }

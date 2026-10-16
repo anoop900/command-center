@@ -8,7 +8,7 @@ from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from . import config, modes, store
+from . import config, modes, problems, store
 from .ai import RunnerError, features, runners
 from .ingest import fetchposting
 from .kits import content, cover, pipeline
@@ -109,6 +109,7 @@ def run_now(db_file, cfg_file, kind, role_id, runner=None):
 def _run(db_file, cfg_file, kind, role_id, text, runner):
     conn = store.connect(db_file)
     try:
+        prob = None
         try:
             cfg = config.load(cfg_file)
             run = runner or runners.make_runner(cfg, conn)
@@ -118,6 +119,9 @@ def _run(db_file, cfg_file, kind, role_id, text, runner):
             notes = content.ensure(home, force=store.get(conn, "kitindex", role_id) is not None) if kind == "kit" else []
             out = fn(conn, role_id, text, cfg.mode.name, run, home)
             state, reason = _outcome(kind, out)
+            if state == "failed":
+                prob = _problem(kind, out, reason)
+                reason = prob["message"]
             if kind == "cover" and state == "done":
                 _publish_cover(conn, role_id, out, home)
             if kind == "kit" and state == "done":
@@ -127,12 +131,26 @@ def _run(db_file, cfg_file, kind, role_id, text, runner):
                 notes.append(_publish_kit(conn, role_id, out, home))
                 reason = " ".join(n for n in notes if n)
         except (pipeline.KitError, RunnerError, config.ConfigError, ValueError, RuntimeError) as e:
-            state, reason = "failed", str(e)
+            prob = problems.describe(e)
+            state, reason = "failed", prob["message"]
         except Exception as e:  # a worker must always leave a final state, or the page shows progress forever
-            state, reason = "failed", f"{type(e).__name__}: {e}"[:300]
-        _put(conn, kind, role_id, state=state, reason=reason, finished=store.now())
+            prob = problems.describe(e, detail=f"{type(e).__name__}: {e}")
+            state, reason = "failed", prob["message"]
+        prob = prob or {}
+        _put(conn, kind, role_id, state=state, reason=reason, finished=store.now(), code=prob.get("code", ""),
+             fix=prob.get("fix", ""), action=prob.get("action", ""), detail=prob.get("detail", ""))
     finally:
         conn.close()
+
+
+def _problem(kind, out, reason):
+    """The plain message and next step for a failed pipeline result (a kit that failed its checks gets the resume-specific one)."""
+    out = out or {}
+    if kind == "kit" and out.get("status") == "blocked":
+        issues = list((out.get("qc") or {}).get("issues") or [])
+        note = str((out.get("resume") or {}).get("note") or "")
+        return problems.describe_qc(issues or ([note] if note else []))
+    return problems.describe(reason)
 
 
 def _outcome(kind, out):

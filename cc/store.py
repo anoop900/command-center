@@ -144,6 +144,33 @@ def _clean(collection, data):
     return out
 
 
+HISTORY_KEEP = 25     # older copies of one record are dropped; the board alone grew to 22 MB of history in five days
+
+
+def _trim(conn, collection, doc_id, keep=HISTORY_KEEP):
+    """Keep the newest `keep` history copies of one record. Returns how many were dropped."""
+    return conn.execute(
+        "DELETE FROM history WHERE collection=? AND id=? AND seq <= (SELECT seq FROM history WHERE collection=? AND id=? "
+        "ORDER BY seq DESC LIMIT 1 OFFSET ?)", (collection, doc_id, collection, doc_id, keep)).rowcount
+
+
+def housekeeping(conn, keep=HISTORY_KEEP):
+    """Trim every record's history to `keep` copies and, if that freed a lot, shrink the file. Safe to run any time;
+    a failure to shrink is ignored (the trim itself is what matters). Returns the number of history rows dropped."""
+    dropped = 0
+    keys = conn.execute("SELECT collection, id FROM history GROUP BY collection, id HAVING COUNT(*) > ?", (keep,)).fetchall()
+    for k in keys:
+        with _write(conn):
+            dropped += _trim(conn, k[0], k[1], keep)
+    if dropped >= 50:
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.execute("VACUUM")
+        except sqlite3.Error:
+            pass
+    return dropped
+
+
 def set_doc(conn, collection, doc_id, data, if_version=None, by="", force=False):
     """Replace a record. Existing records need if_version (or force=True, used only by the importer)."""
     if not isinstance(data, dict):
@@ -158,6 +185,7 @@ def set_doc(conn, collection, doc_id, data, if_version=None, by="", force=False)
         if cur is not None:
             conn.execute("INSERT INTO history(collection,id,data,version,op,at,by) VALUES (?,?,?,?,?,?,?)",
                          (collection, doc_id, json.dumps(cur["data"]), cur["version"], "set", now(), by))
+            _trim(conn, collection, doc_id)
         conn.execute("INSERT INTO docs(collection,id,data,version,updated_at,updated_by) VALUES (?,?,?,?,?,?) "
                      "ON CONFLICT(collection,id) DO UPDATE SET data=excluded.data, version=excluded.version, "
                      "updated_at=excluded.updated_at, updated_by=excluded.updated_by",
@@ -183,6 +211,7 @@ def update_doc(conn, collection, doc_id, fields, if_version=None, by=""):
         if cur is not None:
             conn.execute("INSERT INTO history(collection,id,data,version,op,at,by) VALUES (?,?,?,?,?,?,?)",
                          (collection, doc_id, json.dumps(cur["data"]), cur["version"], "update", now(), by))
+            _trim(conn, collection, doc_id)
         conn.execute("INSERT INTO docs(collection,id,data,version,updated_at,updated_by) VALUES (?,?,?,?,?,?) "
                      "ON CONFLICT(collection,id) DO UPDATE SET data=excluded.data, version=excluded.version, "
                      "updated_at=excluded.updated_at, updated_by=excluded.updated_by",

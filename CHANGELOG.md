@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.1
+
+- The resume check now fails any date range that is not in your profile, for example a job shown as "Present" after you set an end date.
+- `cc service install` keeps the port the dashboard already uses instead of switching back to the default.
+- Dates are read in any common order and format (Aug 2024, 15 Aug 2024, 2024/08/15, 08.2024), and only real month names count as months. Dates that cannot be read are reported when you save your profile and in each kit's notes, with the format to use.
+- Your resume rules are applied when a kit is built: if you ban the em dash or the word "leverage", your own profile text is tidied so the kit does not fail its own check. Your content file is never rewritten by this.
+- Rebuild kit keeps resume content you edited by hand and tells you so.
+- Every error now shows a short message and what to do next, in the page and on the command line.
+- The database keeps the newest 25 copies of each record and trims the rest when the dashboard starts, so it no longer grows without limit.
+
 ## 1.0.0
 
 First release.

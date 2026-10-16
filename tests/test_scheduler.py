@@ -285,6 +285,14 @@ class ServiceTests(unittest.TestCase):
                 mock.patch("sys.stdout"):
             self.assertEqual(cli._service(["status"]), 0)
 
+    def test_cli_install_without_port_keeps_the_saved_port(self):
+        (self.d / scheduler.SERVICE_FILE).write_text('{"port": 8792}', encoding="utf-8")
+        with mock.patch.object(cli.config, "data_dir", return_value=self.d), \
+                mock.patch.object(scheduler, "service_install", return_value={"running": True}) as inst, \
+                mock.patch("sys.stdout"):
+            self.assertEqual(cli._service(["install"]), 0)
+        self.assertEqual(inst.call_args[0][0], 8792)
+
 
 class RunHeartbeat(unittest.TestCase):
     def setUp(self):

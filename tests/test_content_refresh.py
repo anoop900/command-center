@@ -34,24 +34,31 @@ class Refresh(unittest.TestCase):
         self.assertIn("Present", (self.home / "content.previous.json").read_text("utf-8"))
         self.assertEqual(content.ensure(self.home), [])      # nothing changed: no note, no churn
 
-    def test_hand_edits_survive_an_automatic_build_but_not_a_requested_rebuild(self):
+    def test_hand_edits_survive_both_an_automatic_build_and_a_requested_rebuild(self):
         edited = json.loads((self.home / "content.json").read_text("utf-8"))
         edited["headline"] = "My own headline"
         (self.home / "content.json").write_text(json.dumps(edited), "utf-8")
         profile.save(self.home, raw("Aug 2024 - June 2026"))
         content.ensure(self.home)
         self.assertEqual(self.dates(), "Aug 2024 - Present")
+        notes = content.ensure(self.home, force=True)
+        self.assertEqual(self.dates(), "Aug 2024 - Present")
+        self.assertIn("My own headline", (self.home / "content.json").read_text("utf-8"))
+        self.assertTrue(any("your own edits" in n for n in notes))
+        self.assertFalse((self.home / "content.previous.json").exists())
+
+    def test_a_requested_rebuild_still_refreshes_content_nobody_edited(self):
+        profile.save(self.home, raw("Aug 2024 - June 2026"))
         content.ensure(self.home, force=True)
         self.assertEqual(self.dates(), "Aug 2024 - June 2026")
-        self.assertIn("My own headline", (self.home / "content.previous.json").read_text("utf-8"))
 
-    def test_a_file_from_before_this_fix_is_only_refreshed_on_a_requested_rebuild(self):
+    def test_a_file_from_before_this_fix_is_treated_as_hand_edited(self):
         (self.home / "content.sha").unlink()
         profile.save(self.home, raw("Aug 2024 - June 2026"))
         content.ensure(self.home)
         self.assertEqual(self.dates(), "Aug 2024 - Present")
         content.ensure(self.home, force=True)
-        self.assertEqual(self.dates(), "Aug 2024 - June 2026")
+        self.assertEqual(self.dates(), "Aug 2024 - Present")
 
     def test_a_requested_rebuild_with_an_incomplete_profile_keeps_the_file_and_says_why(self):
         profile.save(self.home, raw(skills=""))

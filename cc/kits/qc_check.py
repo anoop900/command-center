@@ -103,6 +103,74 @@ def norm(tok):
     return re.sub(r"\s+", "", tok.lower().replace(",", ""))
 
 
+_MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+_MONTH = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+          r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?![a-z])")
+_YEAR = r"(?:19|20)\d\d"
+_TOK = rf"(?:{_MONTH}|\d{{1,2}}(?:st|nd|rd|th)?(?!\d))"      # a month name, or a day / month number
+_SEP = r"[\s./,'-]{1,3}"
+# One date in any order: a four-digit year with up to two neighbours (month name, month number, day), on either side.
+# Examples: Aug 2024 | August 15, 2024 | 15 Aug 2024 | 08/2024 | 15.08.2024 | 2024-08-15 | 2024/08 | 2024 Aug | Aug-2024
+_DATE = rf"(?<![\d])(?:{_YEAR}(?:{_SEP}{_TOK}){{1,2}}(?!\d)|(?:{_TOK}{_SEP}){{0,2}}{_YEAR}(?!\d))"
+_RANGE = re.compile(rf"({_DATE})\s*(?:-|–|—|to|until|through|till)\s*(present|current|now|{_DATE})", re.I)
+
+
+def _point(s):
+    """One date as (year, month or None), or 'present'. Day numbers are ignored. A day/month pair that could be read
+    either way (03/04/2024) leaves the month unknown, so it is never held against the resume."""
+    s = s.lower().strip()
+    if s in ("present", "current", "now"):
+        return "present"
+    y = re.search(rf"(?<!\d)({_YEAR})(?!\d)", s)
+    year = int(y.group(1))
+    for i, name in enumerate(_MONTHS, 1):
+        if re.search(rf"(?<![a-z]){name}", s):
+            return year, i
+    nums = [int(n) for n in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", s)]
+    if not nums:
+        return year, None
+    if re.match(_YEAR, s):                                                                            # year first: year, month, day
+        return year, (nums[0] if 1 <= nums[0] <= 12 else None)
+    if len(nums) == 1:
+        return year, (nums[0] if 1 <= nums[0] <= 12 else None)
+    x, z = nums[0], nums[1]                                                                           # day and month, either order
+    if x > 12 and z <= 12:
+        return year, z
+    if z > 12 and x <= 12:
+        return year, x
+    return year, (x if x == z and x <= 12 else None)
+
+
+def _parse_ranges(text):
+    return [(_point(a), _point(b)) for a, b, in _RANGE.findall(re.sub(r"\s+", " ", text))]
+
+
+DATE_HELP = 'Write dates like "Aug 2024 - Present", "March 2019 to June 2021" or "2019 - 2023".'
+
+
+def dates_problem(employer, dates):
+    """A plain sentence when a job's dates are filled in but cannot be read as a from-to range, else ''."""
+    dates = (dates or "").strip()
+    if not dates or _parse_ranges(dates):
+        return ""
+    return f'The dates for {employer or "one job"} ("{dates[:40]}") cannot be read, so the resume date check skips them. ' + DATE_HELP
+
+
+def _same_point(a, b):
+    if a == "present" or b == "present":
+        return a == b
+    return a[0] == b[0] and (a[1] is None or b[1] is None or a[1] == b[1])    # compare months only when both give one
+
+
+def _show(r):
+    return " - ".join(p if p == "present" else (f"{_MONTHS[p[1] - 1]} " if p[1] else "") + str(p[0]) for p in r)
+
+
+def _ranges(text):
+    """Normalised date ranges ('aug 2024 - present') for display."""
+    return {_show(r) for r in _parse_ranges(text)}
+
+
 def check(text, pages, fill, profile, rules):
     """Return {"pass", "pages", "page2_fill", "issues"}. Pure: no files, no PDF library."""
     rules = normalize(rules)
@@ -147,6 +215,12 @@ def check(text, pages, fill, profile, rules):
             continue
         if t not in prof_nums and core not in prof_nums:
             issues.append("number not in profile: " + tok.strip())
+
+    prof_ranges = _parse_ranges(profile)
+    unknown = {r for r in _parse_ranges(flat)
+               if not any(_same_point(r[0], q[0]) and _same_point(r[1], q[1]) for q in prof_ranges)}
+    for r in sorted(_show(x) for x in unknown):
+        issues.append("date range not in profile: " + r)
 
     for term in rules["watch_terms"] + rules["watch_terms_add"]:
         pat = r"(?<![a-z0-9])" + re.escape(term.strip(" ,")) + r"(?![a-z0-9])"

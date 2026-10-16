@@ -22,6 +22,45 @@ def find_resume(folder, ext):
     return None
 
 
+_LEVERAGE = {"leveraging": "using", "leveraged": "used", "leverages": "uses", "leverage": "use"}
+
+
+def _banned_words(home):
+    try:
+        words = json.loads((home / "qc_rules.json").read_text("utf-8")).get("banned_words") or []
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [w.lower() for w in words if isinstance(w, str)]
+
+
+def _tidy(text, banned):
+    """Apply the two wording rules that have one safe fix, so a resume built from the user's own profile does not fail
+    their own voice check: an em dash becomes a comma, and 'leverag*' becomes 'use*'. Other banned words are left for the
+    check to report."""
+    if not isinstance(text, str):
+        return text
+    if "\u2014" in banned:
+        text = re.sub("\\s*\u2014\\s*", ", ", text)
+    if any(w and w.startswith("leverag") for w in banned):
+        def swap(m):
+            new = _LEVERAGE[m.group(0).lower()]
+            return new.capitalize() if m.group(0)[0].isupper() else new
+        text = re.sub(r"\bleverag(?:ing|ed|es|e)\b", swap, text, flags=re.I)
+    return text
+
+
+def tidy_content(c, home):
+    """Tidy the prose fields of a content dict in place (used on AI-tailored text too)."""
+    banned = _banned_words(home)
+    for k in ("headline", "profile", "subhead"):
+        if k in c:
+            c[k] = _tidy(c[k], banned)
+    c["skills"] = [[_tidy(x, banned) for x in row] for row in c.get("skills", [])]
+    for j in c.get("jobs", []):
+        j["bullets"] = [_tidy(b, banned) for b in j.get("bullets", [])]
+    return c
+
+
 def from_profile(home):
     """Return the content.json dict, or None when the profile has no confirmed name and job."""
     st = profile.load(home)
@@ -32,12 +71,14 @@ def from_profile(home):
         return None
     skills = st["skills"]
     edu = ", ".join(f[k] for k in ("education", "school", "fieldOfStudy") if k in f)
+    banned = _banned_words(home)
+    t = lambda x: _tidy(x, banned)
     return {"name": name,
             "contact": " | ".join(profile.contact_parts(f)),
             "headline": jobs[0]["title"],
             "profile": f"{jobs[0]['title']} at {jobs[0]['employer']}" + (f" ({jobs[0]['dates']})." if jobs[0]["dates"] else "."),
-            "skills": [["Skills", skills["value"]]] if skills["ok"] and skills["value"] else [],
-            "jobs": [{"company": j["employer"], "dates": j["dates"], "title": j["title"], "bullets": list(j["facts"])} for j in jobs],
+            "skills": [["Skills", t(skills["value"])]] if skills["ok"] and skills["value"] else [],
+            "jobs": [{"company": j["employer"], "dates": j["dates"], "title": j["title"], "bullets": [t(b) for b in j["facts"]]} for j in jobs],
             "education": [edu] if edu else []}
 
 
@@ -60,13 +101,13 @@ def _save_generated(home, path, data):
 
 def ensure(home, force=False):
     """Create content.json (from the profile) and a default qc_rules.json when missing, and bring it back in line with the
-    profile when the profile changed: always with force (a rebuild the user asked for; the old file is kept as
-    content.previous.json), otherwise only if nobody edited it by hand. Returns notes for the user.
+    profile when the profile changed: only if nobody edited it by hand (the old file is kept as content.previous.json). Returns notes for the user.
     Raises ValueError with a plain message when there is nothing to build from."""
     notes = []
     path = home / "content.json"
     exists = path.exists()
-    if not exists or force or _generated_untouched(home, path):
+    untouched = exists and _generated_untouched(home, path)
+    if not exists or untouched:
         data = from_profile(home)
         gaps = ["name and a job"] if data is None else             [label for key, label in (("skills", "skills"), ("education", "education (school or degree)")) if not data[key]]
         if gaps and not exists:
@@ -81,6 +122,15 @@ def ensure(home, force=False):
             shutil.copy2(path, home / "content.previous.json")
             _save_generated(home, path, data)
             notes.append("Resume content was refreshed from your profile (the file it replaced is kept as content.previous.json).")
+    elif force:     # hand edits are never replaced, not even by a requested rebuild
+        notes.append("Your resume content has your own edits, so it was kept as it is. To rebuild it from your profile, "
+                     "rename content.json in your data folder and build again.")
+    try:
+        st = profile.load(home)
+        from . import qc_check
+        notes += [w for w in (qc_check.dates_problem(j["employer"], j["dates"]) for j in st["jobs"] if j["ok"]) if w]
+    except (OSError, ValueError, KeyError):
+        pass        # a notice must never stop a build
     rules = home / "qc_rules.json"
     if not rules.exists():
         _write(rules, {})

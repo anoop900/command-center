@@ -234,7 +234,9 @@ def save(data_dir, raw):
     drafts.clear(d, "profile")
     unconfirmed = sum(1 for c in state["fields"].values() if c["value"] and not c["ok"]) + \
         sum(1 for j in state["jobs"] if not j["ok"]) + (1 if state["skills"]["value"] and not state["skills"]["ok"] else 0)
-    return {"written": ["profile.json", "Candidate_Profile.md"], "unconfirmed": unconfirmed}
+    from .kits import qc_check
+    warnings = [w for w in (qc_check.dates_problem(j["employer"], j["dates"]) for j in state["jobs"]) if w]
+    return {"written": ["profile.json", "Candidate_Profile.md"], "unconfirmed": unconfirmed, "date_warnings": warnings}
 
 
 # Answers a job search cannot start without. The form-filler extras (FIELDS beyond these) stay optional.

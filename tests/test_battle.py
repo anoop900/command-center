@@ -3,6 +3,7 @@ failure it guards against; a server error (5xx) or a crash on bad input counts a
 import datetime as dt
 import http.client
 import json
+import re
 import socket
 import tempfile
 import threading
@@ -33,6 +34,33 @@ class WebAbuse(unittest.TestCase):
         data = r.read()
         c.close()
         return r.status, data
+
+    def test_every_error_answer_has_a_plain_message_and_a_fix(self):
+        bad = re.compile(r"Traceback|\w+Error\b|Exception|errno", re.I)
+        cases = [("GET", "/api/nope/x", None), ("POST", "/api/roles", b"{"), ("POST", "/api/roles", b"[]"),
+                 ("GET", "/backup/download/../../x", None), ("POST", "/kits-folder", b'{"path": 5}'),
+                 ("GET", "/kit/..%2f..%2fx", None), ("POST", "/jobs", b'{"kind": "kit", "key": "missing"}')]
+        for m, path, raw in cases:
+            st, data = self.call(m, path, raw, {"Content-Type": "application/json"})
+            self.assertLess(st, 500, (m, path, st))
+            if st >= 400:
+                try:
+                    j = json.loads(data)
+                except ValueError:
+                    continue
+                if isinstance(j, dict) and "error" in j:
+                    self.assertTrue(j.get("fix"), (path, j))
+                    self.assertFalse(bad.search(j["error"] + j["fix"]), (path, j))
+
+    def test_unexpected_crash_is_a_friendly_500_not_a_dropped_connection(self):
+        from unittest import mock
+        with mock.patch.object(web._Handler, "_get", side_effect=KeyError("secret_internal_key")):
+            st, data = self.call("GET", "/anything")
+        j = json.loads(data)
+        self.assertEqual(st, 500)
+        self.assertEqual(j["error"], "Something went wrong.")
+        self.assertTrue(j["fix"])
+        self.assertNotIn("secret_internal_key", data.decode().replace(j["detail"], ""))
 
     def raw_socket(self, payload):
         s = socket.create_connection(("127.0.0.1", self.port), timeout=5)
@@ -321,6 +349,15 @@ class CliAbuse(unittest.TestCase):
         with mock.patch.dict(os.environ, {"CC_HOME": str(home)}), contextlib.redirect_stderr(err),                 contextlib.redirect_stdout(io.StringIO()):
             code = main(list(args))
         return code, err.getvalue()
+
+    def test_unexpected_crash_prints_a_short_message_not_a_traceback(self):
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch("cc.cli._dispatch", side_effect=KeyError("boom")):
+                code, err = self.run_cli(d, "status")
+        self.assertEqual(code, 3)
+        self.assertIn("What to do:", err)
+        self.assertNotIn("Traceback", err)
 
     def test_bad_config_is_a_clean_error(self):
         with tempfile.TemporaryDirectory() as d:

@@ -104,6 +104,7 @@ def build_kit(conn, role_id, posting, mode, runner=ai.none_runner, home=None):
         kit["status"] = "waiting"
         kit["notes"].append("tailor answer is pending: use `cc ai cards` / `cc ai answer`, then rerun")
         return kit      # nothing is built or stored until the answer arrives
+    kit_content.tidy_content(content, home)     # the working copy only; the user's content.json is never rewritten here
     content["file_stem"] = kit_content.resume_stem(content.get("name"))
 
     kits = config.kits_dir(home)

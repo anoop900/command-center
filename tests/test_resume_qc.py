@@ -113,6 +113,53 @@ class Rules(unittest.TestCase):
         self.assertTrue(qc_check.check("fine", 2, 0.9, "", {"never_claim": [" ", ""]})["pass"])
 
 
+class DateRanges(unittest.TestCase):
+    PROFILE = "Analyst, Acme (Aug 2024 - June 2026)\nClerk, Beta (2019 – 2021)"
+
+    def issues(self, text):
+        return qc_check.check(text, 2, 0.9, self.PROFILE, {})["issues"]
+
+    def test_present_where_the_profile_has_an_end_date_is_caught(self):
+        self.assertIn("date range not in profile: aug 2024 - present", self.issues("Analyst, Acme (Aug 2024 - Present)"))
+
+    def test_matching_ranges_pass_whatever_the_month_spelling_or_dash(self):
+        self.assertEqual(self.issues("Analyst, Acme (Aug. 2024 – Jun 2026) Clerk, Beta (2019 - 2021)"), [])
+
+    def test_a_long_word_before_the_dates_is_not_read_as_a_month(self):
+        self.assertEqual([i for i in self.issues("AGF MANAGEMENT 2013 - 2014") if "date range" in i], ["date range not in profile: 2013 - 2014"])
+
+    def test_only_real_month_names_count_as_months(self):
+        self.assertEqual([i for i in self.issues("Toronto, Canada 2013 - 2014; Manager 2016-2017") if "date range" in i],
+                         ["date range not in profile: 2013 - 2014", "date range not in profile: 2016 - 2017"])
+
+    def test_any_date_format_is_read_and_only_stated_parts_are_compared(self):
+        profile = "Lead, Acme: August 15, 2024 - Present. Analyst: 2019-03-01 to 2021-06-30. Clerk: 03/04/2015 - 2017."
+        ok = lambda r: [i for i in qc_check.check(r, 2, 0.9, profile, {})["issues"] if "date range" in i]
+        for same in ("Aug 2024 - Present", "2024 - Present", "15 Aug 2024 until now", "Mar 2019 - Jun 2021", "03/2019 - 06/2021",
+                     "1st March 2019 through 30 June 2021", "2019 - 2021", "Apr 2015 - 2017", "Mar 2015 - 2017"):
+            self.assertEqual(ok(same), [], same)
+        for wrong, shown in (("Aug 2024 - Jun 2026", "aug 2024 - jun 2026"), ("Apr 2019 - Jun 2021", "apr 2019 - jun 2021"),
+                             ("2018 - 2021", "2018 - 2021"), ("2024-09-01 to 2025-01-31", "sep 2024 - jan 2025")):
+            self.assertEqual(ok(wrong), ["date range not in profile: " + shown], wrong)
+
+    def test_year_first_month_first_and_every_separator_read_the_same(self):
+        for a, b in (("2024 Aug - Present", "Aug 2024 - Present"), ("2024/08/15 - 2025/03/01", "15 Aug 2024 - 1 Mar 2025"),
+                     ("08.2024 - 03.2025", "Aug-2024 - Mar-2025"), ("2024-08 - 2025-03", "August 2024 to March 2025"),
+                     ("15.08.2024 - Present", "Aug 15, 2024 - Present"), ("2019-2021", "2019 - 2021")):
+            self.assertEqual(qc_check._ranges(a), qc_check._ranges(b), (a, b))
+            self.assertEqual([i for i in qc_check.check(b, 2, 0.9, a, {})["issues"] if "date range" in i], [], (a, b))
+
+    def test_numbers_after_a_year_are_not_taken_as_dates(self):
+        self.assertEqual(qc_check._ranges("2020 - 12 projects, ISO 27001 - 2020"), set())
+
+    def test_text_that_is_not_a_date_never_fails(self):
+        for t in ("Summer 2019 - Fall 2021", "Version 3.2019 - 2021 build", "ISO 27001 - 2020", "", "2024-13-45"):
+            qc_check.check(t, 2, 0.9, self.PROFILE, {})        # must not raise
+
+    def test_no_ranges_in_the_resume_is_fine(self):
+        self.assertEqual(self.issues("Led a team of five in 2024."), [])
+
+
 class Endpoints(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

@@ -1,6 +1,6 @@
 [project]
 name = "cc"
-version = "1.0.0"
+version = "1.0.1"
 description = "Command Center: local-first, AI-agnostic job-search operations."
 requires-python = ">=3.11"
 license = { text = "MIT" }

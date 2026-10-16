@@ -109,6 +109,19 @@ class JobTests(unittest.TestCase):
             j = self.state()
         self.assertEqual(j["state"], "failed")
         self.assertIn("content fills only 1 page, not 2", j["reason"])
+        self.assertEqual(j["code"], "qc_failed")
+        self.assertIn("Rebuild kit", j["fix"])
+        self.assertEqual(j["action"], "profile")
+
+    def test_failed_job_for_banned_words_has_plain_reason_and_fix(self):
+        out = {"status": "blocked", "resume": {}, "qc": {"issues": ["voice: banned word 'leverag'", "voice: banned word '—'"]}}
+        state, reason = jobs._outcome("kit", out)
+        p = jobs._problem("kit", out, reason)
+        self.assertEqual(state, "failed")
+        self.assertIn("ban", p["message"])
+        self.assertIn("leverag", p["message"])
+        self.assertNotIn("voice:", p["message"])
+        self.assertTrue(p["fix"])
 
     def test_saved_posting_is_reused(self):
         self.start()
@@ -153,7 +166,7 @@ class JobTests(unittest.TestCase):
             self.start()
             j = self.state()
         self.assertEqual(j["state"], "failed")
-        self.assertIn("bad thing", j["reason"])
+        self.assertIn("bad thing", j["reason"].lower())
 
     def test_restart_marks_stuck_builds_failed(self):
         store.set_doc(self.conn, "jobs", "kit-contoso-lead", {"kind": "kit", "key": "contoso-lead", "state": "running", "ts": store.now()})

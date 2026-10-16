@@ -37,7 +37,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from . import api, config, importer, secrets, store
+from . import api, config, importer, problems, secrets, store
 
 
 def _doctor():
@@ -275,7 +275,7 @@ def _service(rest):
     sub = rest[0] if rest else ""
     try:
         if sub == "install":
-            port = scheduler.SERVICE_PORT
+            port = scheduler._saved_port(config.data_dir())  # a reinstall keeps the port the service already has
             if "--port" in rest:
                 i = rest.index("--port") + 1
                 port = int(rest[i]) if i < len(rest) and rest[i].isdigit() else -1
@@ -342,19 +342,29 @@ def _ai(conn, rest):
     return 0
 
 
+def _fail(e, label="error"):
+    """Print a failure as a plain message plus what to do next (details go to the log, not the screen)."""
+    p = problems.describe(e)
+    print(f"{label}: {p['message']}\n  What to do: {p['fix']}", file=sys.stderr)
+    if p["detail"] and p["detail"].rstrip(".").lower() not in p["message"].lower():
+        print(f"  Details: {p['detail']}", file=sys.stderr)
+
+
 def main(argv=None):
     a = list(sys.argv[1:] if argv is None else argv)
     if not a or a[0] in ("-h", "--help", "help"):
         print(__doc__)
         return 0
     cmd, rest = a[0], a[1:]
+    from . import ai
+    from .kits.pipeline import KitError
     try:
         return _dispatch(cmd, rest)
     except config.ConfigError as e:
-        print(f"config error: {e}", file=sys.stderr)
+        _fail(e, "config error")
         return 2
     except (ValueError, json.JSONDecodeError) as e:
-        print(f"error: {e}", file=sys.stderr)
+        _fail(e)
         return 2
     except (PermissionError, FileExistsError, FileNotFoundError, NotADirectoryError, IsADirectoryError) as e:   # not network errors
         print(f"cannot use the data folder {config.data_dir()}: {e.strerror or e}. "
@@ -367,6 +377,15 @@ def main(argv=None):
             return 2
         print(f"database error: {e}. Restore from a backup (cc backup) or move the database file aside.",
               file=sys.stderr)
+        return 3
+    except (KitError, ai.RunnerError) as e:
+        _fail(e)
+        return 2
+    except KeyboardInterrupt:
+        raise
+    except Exception as e:     # last resort: a short message, never a traceback
+        print(f"cc: unexpected {type(e).__name__}", file=sys.stderr)
+        _fail(e)
         return 3
 
 

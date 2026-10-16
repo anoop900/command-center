@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from . import aiprov, api, assets, jobs, backup, coach, config, drafts, learned, learning, modes, profile, qcrules, resume, rules_cfg, scheduler, store, thirdparty, wizard
+from . import aiprov, api, assets, jobs, backup, coach, config, drafts, learned, learning, modes, problems, profile, qcrules, resume, rules_cfg, scheduler, store, thirdparty, wizard
 from .ai import RunnerError, budget, features, runners
 from .kits.pipeline import KitError
 from .runs import actions, board
@@ -114,7 +114,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _send(self, code, body=b"", ctype="application/json", extra=()):
         if not isinstance(body, bytes):
-            body = json.dumps(body, ensure_ascii=False).encode()
+            body = json.dumps(problems.for_body(body), ensure_ascii=False).encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
@@ -181,7 +181,26 @@ class _Handler(BaseHTTPRequestHandler):
             return None
         return data
 
+    def _safely(self, fn):
+        """Any unexpected crash becomes a short answer with a next step, never a dropped connection or a traceback."""
+        try:
+            fn()
+        except ConnectionError:
+            raise
+        except Exception as e:
+            try:
+                print(f"cc web: {self.command} {self.path.split('?')[0]} failed: {type(e).__name__}: {e}", file=sys.stderr)
+                self._send(500, {**problems.describe(e), "error": problems.describe(e)["message"]})
+            except Exception:
+                pass
+
     def do_GET(self):
+        self._safely(self._get)
+
+    def do_POST(self):
+        self._safely(self._post)
+
+    def _get(self):
         if not self._guard(False):
             return
         path, q = self._route()
@@ -393,12 +412,12 @@ class _Handler(BaseHTTPRequestHandler):
         except (ValueError, OSError, config.ConfigError) as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error as e:
-            return self._send(503, {"error": f"database busy: {e}"})
+            return self._send(503, {"error": "database busy"})
         finally:
             conn.close()
         self._send(200, out)
 
-    def do_POST(self):
+    def _post(self):
         if not self._guard(True):
             return
         path, _ = self._route()
@@ -455,7 +474,7 @@ class _Handler(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error as e:
-            return self._send(503, {"error": f"database busy: {e}"})
+            return self._send(503, {"error": "database busy"})
         finally:
             conn.close()
 
@@ -650,7 +669,7 @@ class _Handler(BaseHTTPRequestHandler):
         except (ValueError, config.ConfigError, RunnerError) as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error as e:
-            return self._send(503, {"error": f"database busy: {e}"})
+            return self._send(503, {"error": "database busy"})
         finally:
             conn.close()
 
@@ -667,7 +686,7 @@ class _Handler(BaseHTTPRequestHandler):
         except (KitError, OSError) as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error as e:
-            return self._send(503, {"error": f"database busy: {e}"})
+            return self._send(503, {"error": "database busy"})
         finally:
             conn.close()
         self._send(200, out)
@@ -704,7 +723,7 @@ class _Handler(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error as e:
-            return self._send(503, {"error": f"database busy: {e}"})
+            return self._send(503, {"error": "database busy"})
         else:
             if col == "actions" and method != "DELETE":
                 _settle(conn)
@@ -725,7 +744,7 @@ class _Handler(BaseHTTPRequestHandler):
         except ValueError as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error as e:
-            return self._send(503, {"error": f"database busy: {e}"})
+            return self._send(503, {"error": "database busy"})
         self._send(200, out)
 
     def _add_role(self):
@@ -747,7 +766,7 @@ class _Handler(BaseHTTPRequestHandler):
         except (ValueError, store.Conflict) as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error as e:
-            return self._send(503, {"error": f"database busy: {e}"})
+            return self._send(503, {"error": "database busy"})
         self._send(200, out)
 
     def _json_body(self, limit):
@@ -793,7 +812,7 @@ class _Handler(BaseHTTPRequestHandler):
         except (config.ConfigError, ai.RunnerError) as e:
             return self._send(200, {"status": "unavailable", "reason": str(e)})
         except sqlite3.Error as e:
-            return self._send(503, {"error": f"database busy: {e}"})
+            return self._send(503, {"error": "database busy"})
         finally:
             conn.close()
         self._send(200, out)
@@ -809,6 +828,10 @@ def make_server(data_dir=None, port=8765):
     handler = type("Handler", (_Handler,), {"db_file": d / "commandcenter.db", "cfg_file": d / "config.toml"})
     conn = store.connect(handler.db_file)
     jobs.recover(conn)
+    try:
+        store.housekeeping(conn)
+    except Exception:
+        pass       # housekeeping must never stop the dashboard from starting
     try:
         kitlink.link_all(conn, d)
     except (store.Conflict, OSError):

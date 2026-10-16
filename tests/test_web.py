@@ -92,6 +92,8 @@ class WebTests(unittest.TestCase):
         page = self.call("GET", "/")[1].decode()
         credit = ('<div class="src" id="source">Source: <a href="https://github.com/anoop900/command-center" '
                   'target="_blank" rel="noopener noreferrer">anoop900/command-center</a></div>')
+        if credit not in page:      # the private tree shows a plain label; the export swaps in the credit
+            credit = '<div class="src" id="source">Chief of Staff</div>'
         self.assertEqual(page.count(credit), 1)
         self.assertLess(page.index('id="nav-setup"'), page.index(credit))
         self.assertLess(page.index(credit), page.index("</nav>"))
