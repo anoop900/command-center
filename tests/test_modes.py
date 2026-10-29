@@ -6,7 +6,7 @@ from cc import config, modes
 
 class ModesTests(unittest.TestCase):
     def test_table_is_complete(self):
-        self.assertEqual(len(modes.FEATURES), 15)
+        self.assertEqual(len(modes.FEATURES), 16)
         for f in modes.FEATURES:
             for m in modes.MODES:
                 self.assertTrue(modes.capability(f, m))
@@ -70,6 +70,7 @@ class ModesTests(unittest.TestCase):
         self.assertEqual([x["label"] for x in p["off"]],
                          ["Claim trace + independent review", "Interview prep from stories",
                           "Cover letter (one page, only when you press the button)",
+                          "Message drafts: follow-ups and replies (only when you press the button)",
                           "LinkedIn reading beyond alert emails",
                           "Active learning: an AI suggests title terms to avoid (optional, off until you turn it on)"])
         self.assertEqual([x["label"] for x in p["later"]], ["Phone dashboard"])

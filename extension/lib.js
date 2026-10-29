@@ -1,6 +1,65 @@
 // Shared by the side panel and the background worker: role kits, resume, profile, fill.
 const JAF_SCRIPTS = ["common.js", "adapters/workday.js", "adapters/successfactors.js", "adapters/lever.js", "adapters/ashby.js", "adapters/greenhouse.js"];
-const JAF_DASH = ""; // the dashboard address is set in Options; no default
+const JAF_PORTS = [8792, 8791]; // tried when no dashboard address is set in Options
+
+// The running dashboard: the address from Options, else the usual local ports. null when none answers.
+async function jafBase() {
+  const { dash } = await chrome.storage.local.get("dash");
+  let tries = JAF_PORTS.map((p) => `http://127.0.0.1:${p}`);
+  if (dash) { try { tries = [new URL(dash).origin]; } catch { return null; } }
+  for (const b of tries) {
+    try {
+      const r = await fetch(b + "/extension/health", { cache: "no-store", signal: AbortSignal.timeout(2500) });
+      if (r.ok && (await r.json()).ok) return b;
+    } catch {}
+  }
+  return null;
+}
+async function jafGet(base, path) {
+  const r = await fetch(base + path, { cache: "no-store" });
+  if (!r.ok) { let m = ""; try { m = (await r.json()).error; } catch {} throw new Error(m || `dashboard answered ${r.status}`); }
+  return r;
+}
+
+// Open roles that have a kit, from the dashboard: same shape as the folder roles, plus key and resume name.
+async function jafDashRoles(base) {
+  const { roles } = await (await jafGet(base, "/extension/roles")).json();
+  return roles.map((x) => {
+    const parts = x.folder.split(/[\/]/);
+    return { date: parts[0], folder: parts[parts.length - 1], rel: x.folder, key: x.key, handle: null, resumeName: x.resume, applied: x.applied,
+      kit: { company: x.company, aliases: x.aliases, posting_url: x.link, apply_url: "", job_id: x.job_id } };
+  });
+}
+
+// Where the roles come from: the dashboard first, the chosen folder only if the dashboard is not reachable.
+// -> {source: "dashboard"|"folder"|null, base, roles, problem}
+async function jafLoad(ask) {
+  const base = await jafBase();
+  if (base) {
+    try { return { source: "dashboard", base, roles: await jafDashRoles(base), problem: "" }; }
+    catch (e) { return { source: null, base, roles: [], problem: `The dashboard is running but did not give the roles: ${e.message}` }; }
+  }
+  const root = await jafRoot(ask);
+  if (root && root !== "needs-permission") {
+    try { return { source: "folder", base: null, roles: await jafRoles(root), problem: "" }; }
+    catch (e) { return { source: null, base: null, roles: [], problem: `Dashboard not running, and the folder could not be read: ${e.message}` }; }
+  }
+  return { source: null, base: null, roles: [], needsPermission: root === "needs-permission",
+    problem: "Dashboard not reachable. Start it (cc start), or set its address in Options." };
+}
+
+// One line per thing that can be wrong, for the side-panel health check.
+async function jafHealth() {
+  const base = await jafBase();
+  if (!base) return [{ ok: false, text: "Dashboard not reachable. Start it with `cc start`, or set its address in Options." }];
+  const out = [{ ok: true, text: `Dashboard found at ${base}.` }];
+  try {
+    const h = await (await jafGet(base, "/extension/health")).json();
+    out.push(h.profile ? { ok: true, text: "Profile is filled in." } : { ok: false, text: "Profile has no confirmed first name: open Profile on the dashboard and confirm your answers." });
+    out.push(h.roles ? { ok: true, text: `${h.roles} open role${h.roles === 1 ? "" : "s"} with a kit.` } : { ok: false, text: "No open role has a kit yet: build one on the dashboard." });
+  } catch (e) { out.push({ ok: false, text: e.message }); }
+  return out;
+}
 
 async function jafRoot(ask) {
   const h = await IDB.get("root");
@@ -61,6 +120,15 @@ function jafMatch(roles, url, title) {
   return best;
 }
 
+// Why a role matched this page, in words (shown next to the kit name).
+function jafWhy(r, url, title) {
+  const k = r.kit || {};
+  const flat = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if ([k.posting_url, k.apply_url].some((x) => x && jafSamePosting(x, url))) return "same job link as the dashboard";
+  if (k.job_id && flat(k.job_id).length >= 4 && flat(url).includes(flat(k.job_id))) return "job number in the link";
+  return "company name in the page";
+}
+
 // Fill log (E3): what happened on each page, labels only, never values. Last 200 entries, local to this Chrome.
 async function jafLog(entry) {
   const { log = [] } = await chrome.storage.local.get("log");
@@ -78,6 +146,16 @@ function jafLogEntry(url, kit, results) {
 }
 
 async function jafResume(role) {
+  if (role.key) {
+    const base = await jafBase();
+    if (!base) return null;
+    let r;
+    try { r = await jafGet(base, "/extension/resume/" + encodeURIComponent(role.key)); } catch { return null; }
+    const buf = new Uint8Array(await r.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+    return { name: r.headers.get("X-Resume-Name") || role.resumeName || "Resume.pdf", folder: role.rel, b64: btoa(bin) };
+  }
   let fh = null;
   for await (const [n, h] of role.handle.entries()) if (h.kind === "file" && /resume.*\.pdf$/i.test(n)) { fh = h; break; }
   if (!fh) return null;
@@ -88,10 +166,27 @@ async function jafResume(role) {
   return { name: f.name, folder: `${role.date}\\${role.folder}`, b64: btoa(bin) };
 }
 
+// Profile answers: from the dashboard (always current), else the profile.json bundled with the extension.
+// -> the answers; `missing` (on the result) lists the profile fields still blank.
 async function jafProfile() {
-  const r = await fetch(chrome.runtime.getURL("profile.json"));
-  if (!r.ok) throw new Error("profile.json missing: run tools/make_profile.py (see README)");
+  const base = await jafBase();
+  if (base) {
+    try {
+      const j = await (await jafGet(base, "/extension/profile")).json();
+      if (j.profile && j.profile.firstName) return Object.assign(j.profile, { _missing: j.missing });
+    } catch {}
+  }
+  const r = await fetch(chrome.runtime.getURL("profile.json")).catch(() => null);
+  if (!r || !r.ok) throw new Error("Dashboard not reachable, so there are no profile answers. Start it (cc start), or set its address in Options.");
   return r.json();
+}
+
+// Tell the dashboard the role is applied. Only called from a click on "Mark applied".
+async function jafMarkApplied(key) {
+  const base = await jafBase();
+  if (!base) throw new Error("Dashboard not reachable: mark it applied there.");
+  const r = await fetch(base + "/extension/applied", { method: "POST", headers: { "Content-Type": "application/json", "X-CC-Extension": "1" }, body: JSON.stringify({ key }) });
+  if (!r.ok) { let m = ""; try { m = (await r.json()).error; } catch {} throw new Error(m || `dashboard answered ${r.status}`); }
 }
 
 // Inject the engine into every frame of the tab and fill. Returns the per-frame results that did something.

@@ -17,11 +17,11 @@
   const btn = root.getElementById("b"), box = root.getElementById("box");
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const show = (html) => { box.innerHTML = `<span class="x" id="x">✕</span>` + html; box.style.display = "block"; root.getElementById("x").onclick = () => (box.style.display = "none"); };
-  let label = "Fill this page", kit = "";
+  let label = "Fill this page", kit = "", key = "";
 
   const ask = (msg) => new Promise((res) => { try { chrome.runtime.sendMessage(msg, (r) => res(chrome.runtime.lastError ? null : r)); } catch { res(null); } });
   ask({ type: "jaf-match" }).then((r) => {
-    if (r && r.company) { kit = r.kit; label = `Fill · ${r.company} kit`; btn.textContent = label; btn.title = `Kit: ${r.kit}. Fills this page, never submits.`; }
+    if (r && r.company) { kit = r.kit; key = r.key || ""; label = `Fill · ${r.company} kit`; btn.textContent = label; btn.title = `Kit: ${r.kit}. Fills this page, never submits.`; }
   });
 
   const run = () => {
@@ -36,6 +36,7 @@
       const res = r.results.map((x) => x.resume).find((s) => s.startsWith("attached")) || r.results[0]?.resume || "not attached";
       show(`<b>${f ? `<span class="ok">${f} filled</span>` : "Nothing to fill here"}</b>${review.length ? `, <span class="rev">${review.length} to check</span>` : ""}, <span class="warn">${flagged.length} for you</span><br>
         Kit: ${esc(r.kit || "none")} · Resume: ${esc(res)}
+        ${r.unknown && r.unknown.length ? `<div class="warn">Not recognised (answer yourself): ${r.unknown.map((x) => esc(x.slice(0, 50))).join("; ")}</div>` : ""}
         ${r.notes.map((n) => `<div class="warn">${esc(n)}</div>`).join("")}
         ${review.length ? `<ul>${review.map((x) => `<li class="rev">${esc(x.field.slice(0, 60))}: ${esc(x.why)}</li>`).join("")}</ul>` : ""}
         ${flagged.length ? `<ul>${flagged.map((x) => `<li>${esc(x.field.slice(0, 60))}: ${esc(x.why)}</li>`).join("")}</ul>` : ""}
@@ -52,8 +53,10 @@
     if (seen || !document.body || document.body.innerText.length > 200000 || !DONE.test(document.body.innerText)) return;
     seen = true;
     ask({ type: "jaf-submitted", page: location.hostname + location.pathname, kit });
-    show(`<b class="ok">Looks submitted.</b><br>Mark it applied on the dashboard (the confirmation email also does it on the next run).<br><button class="sec" id="dash">Open dashboard</button>`);
+    show(`<b class="ok">Looks submitted.</b><br>Mark it applied here, or on the dashboard (the confirmation email also does it on the next run).<br>${key ? `<button class="sec" id="mark">Mark applied</button> ` : ""}<button class="sec" id="dash">Open dashboard</button>`);
     root.getElementById("dash").onclick = () => ask({ type: "jaf-dash" });
+    const mk = root.getElementById("mark");
+    if (mk) mk.onclick = () => { mk.disabled = true; ask({ type: "jaf-applied", key }).then((r) => { mk.textContent = r && r.ok ? "Marked applied" : "Could not: " + ((r && r.error) || "no answer"); }); };
   };
   new MutationObserver(() => { if (!seen && !t) t = setTimeout(() => { t = 0; check(); }, 2000); }).observe(document.documentElement, { childList: true, subtree: true });
   setTimeout(check, 1500);

@@ -548,3 +548,47 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LearningAbuse(unittest.TestCase):
+    """Reasons, manual adds and feeds with hostile values: a 5xx or a traceback is a bug."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.srv = web.make_server(self.dir, 0)
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.port = self.srv.server_address[1]
+
+    def tearDown(self):
+        self.srv.shutdown()
+        self.srv.server_close()
+        self.tmp.cleanup()
+
+    def post(self, path, body):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request("POST", path, json.dumps(body), {"Content-Type": "application/json"})
+        r = c.getresponse()
+        r.read()
+        c.close()
+        return r.status
+
+    def test_add_role_with_hostile_found_via_is_a_clean_400_or_200(self):
+        for via in (["x"], {"a": 1}, 5, None, "x" * 100000, "\x00\ud800", "<script>alert(1)</script>"):
+            with self.subTest(via=str(via)[:20]):
+                s = self.post("/add-role", {"company": "Delta", "title": f"Role {abs(hash(str(via))) % 9999}",
+                                            "link": "https://x.example/j/1", "found_via": via, "build": False})
+                self.assertLess(s, 500)
+
+    def test_learning_view_survives_garbage_signals_and_feeds(self):
+        conn = store.connect(self.dir / "commandcenter.db")
+        store.set_doc(conn, "signals", "a", {"kind": "pref", "group": "pay", "place": 5, "company": None})
+        store.set_doc(conn, "signals", "b", {"kind": "missed", "terms": "notalist", "why": 7, "via": None})
+        store.set_doc(conn, "learned", "feeds", {"sources": {"x": {"seen": "many", "gates": []}}})
+        conn.close()
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        c.request("GET", "/learned")
+        r = c.getresponse()
+        r.read()
+        c.close()
+        self.assertLess(r.status, 500)

@@ -67,3 +67,11 @@ honest. `cc service status` shows whether it is installed and answering; `cc ser
 Windows and macOS use the OS task manager; on Linux it uses a `@reboot` cron line (no restart on crash). Only Windows
 has been tried on a real machine. The installer sets this up for you. After an upgrade the running copy notices the new
 code and restarts itself (Windows and macOS by the OS task, Linux by itself); `cc start --reinstall` forces it.
+
+### Two installs on one computer
+
+Each data folder gets its own tasks. The default folder (`~/.commandcenter`) keeps the plain names
+(`CommandCenter-web`, `CommandCenter-morning`, `CommandCenter-midday`); any other folder, chosen with `CC_HOME`, adds a
+short suffix made from its path (for example `CommandCenter-web-1a2b3c4d`). Installing, restarting or removing one
+install never touches the other's tasks. Give each install its own `CC_HOME` and its own port (`--port N`); two installs
+that share one data folder are one install.

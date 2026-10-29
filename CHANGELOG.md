@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0
+
+- The demo shifts its dates to today when you load it, so it always looks current (it used to show an empty Today once its fixed dates aged out).
+- Roles you applied to stay off the board until a cooldown passes (90 days, `reapply_after_days`) or the posting is reposted; a repost comes back flagged.
+- More reasons for Not applying (18 now). Pay, place, level, contract, company and agency reasons turn into suggestions on the Learning page once they repeat.
+- Roles you add by hand ask where you found them, and the Learning page shows why the search missed them. Each job alert and feed shows what it sent and which rule failed it.
+- A Run now button on Today runs the morning update when the scheduled run failed or did not happen, and says what to do if it stops.
+- Draft a message for any role (email, LinkedIn message or connection note), including roles you add by hand and replies to a message you received, with your own instructions. Nothing is sent.
+- The statements in a kit that could not be traced to your profile are listed in the role's Details, with the reason.
+- The browser extension gets your role kits, resume and answers from the running dashboard, so there is no folder to pick and nothing to regenerate. It says which role it matched and why, lists profile answers you are missing and questions it did not recognise, has a Check connection button, and Mark applied on the thank-you page updates the dashboard (only when you click). The folder method stays as a backup.
+- A private and a public install on one computer no longer replace each other's scheduled tasks (each data folder gets its own).
+
 ## 1.0.1
 
 - The resume check now fails any date range that is not in your profile, for example a job shown as "Present" after you set an end date.

@@ -44,7 +44,11 @@ def run(conn, mode="morning", today=None, now=None, msgs=None, ics_text=None, sc
             learned.suggest_ai(conn, ai)            # only when the user turned AI learning on
         except Exception as e:                       # a bonus step; it must not stop the board
             notes.append(_note(f"AI learning suggestions failed: {type(e).__name__}"))
-        added = len(intake.intake(conn, score_cfg, profile, postings, today)["added"])
+        res = intake.intake(conn, score_cfg, profile, postings, today)
+        added = len(res["added"])
+        if res["held"] or res["reposts"]:
+            notes.append(_note(f"{len(res['held'])} role(s) you already applied to were kept off the board; "
+                               f"{len(res['reposts'])} came back as reposts"))
         added += len(intake.regate(conn, score_cfg)["to_new"])    # roles whose only failure was junk text or a forgotten rule
         if mode == "morning":
             try:

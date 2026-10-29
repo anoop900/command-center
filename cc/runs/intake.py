@@ -105,6 +105,46 @@ def regate(conn, config):
     return {"to_review": to_review, "to_new": to_new}
 
 
+DEFAULT_REAPPLY_DAYS = 90      # an applied role may return as a new role only after this many days...
+REPOST_MIN_DAYS = 21           # ...or, once this many days have passed, when the posting carries a new id (a real repost)
+_APPLIED_WORDS = ("appl", "interview", "offer", "reject", "withdr", "no response", "declin", "closed")
+
+
+def reapply_days(cfg):
+    v = (cfg or {}).get("reapply_after_days")
+    return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else DEFAULT_REAPPLY_DAYS
+
+
+def _was_applied(r):
+    st = str(r.get("status", "")).lower()
+    if "skipped" in st or "not appl" in st:
+        return False
+    return bool(r.get("date_applied")) or any(w in st for w in _APPLIED_WORDS)
+
+
+def _day(v):
+    try:
+        return dt.date.fromisoformat(str(v)[:10])
+    except Exception:
+        return None
+
+
+def judge_repeat(matches, url, today, days=DEFAULT_REAPPLY_DAYS):
+    """A posting matches roles already on file. matches: list of role dicts. Returns ('dup', None) when it is still the
+    same open role (or a role you chose to skip), ('hold', role) when you applied recently and it is not a repost, or
+    ('repost', role) when enough time has passed or the posting has a new id after at least REPOST_MIN_DAYS."""
+    if any(not _was_applied(r) for r in matches):
+        return "dup", None
+    last = max(matches, key=lambda r: str(r.get("date_applied") or r.get("date_found") or ""))
+    since = (today - d).days if (d := _day(last.get("date_applied") or last.get("date_found"))) else 0
+    if since >= days:
+        return "repost", last
+    new_id, old_ids = job_key.url_id(url), {job_key.url_id(r.get("link", "")) for r in matches} - {""}
+    if since >= REPOST_MIN_DAYS and new_id and old_ids and new_id not in old_ids:
+        return "repost", last
+    return "hold", last
+
+
 def fetch_boards(conn, config, opener=None, today=None):
     """Poll every board in the targets collection with the [boards] rules from the scoring config."""
     targets = [d["data"] for d in store.list_docs(conn, "targets") if d["data"].get("token")]
@@ -114,36 +154,74 @@ def fetch_boards(conn, config, opener=None, today=None):
 def intake(conn, config, profile_text, postings, today=None):
     """Write new postings as roles. Idempotent: a posting already in roles (by job_key or URL id) is skipped."""
     today = (today or dt.date.today()).isoformat()
+    docs = store.list_docs(conn, "roles")
     existing = [(d["data"].get("key") or d["id"], d["data"].get("company", ""), d["data"].get("title", ""), d["data"].get("link", ""))
-                for d in store.list_docs(conn, "roles")]
+                for d in docs]
+    by_key = {(d["data"].get("key") or d["id"]): d for d in docs}
+    days, now = reapply_days(config), dt.date.fromisoformat(today)
     rel = (relevance.settings(conn), learned.model(conn))
     terms = terms_of(profile_text) | set(relevance.terms(" ".join(rel[0]["targets"])))
-    out = {"added": [], "skipped": [], "duplicates": 0}
+    out = {"added": [], "skipped": [], "duplicates": 0, "held": [], "reposts": []}
+    feeds = {}                                         # per source: what happened to what it sent (learned.record_feeds)
+    def tally(p, what, gate_name=""):
+        f = feeds.setdefault(str(p.get("source") or "board")[:30], {"seen": 0, "added": 0, "dup": 0, "held": 0, "gated": 0, "gates": {}})
+        f["seen"] += 1
+        f[what] += 1
+        if gate_name:
+            f["gates"][gate_name] = f["gates"].get(gate_name, 0) + 1
     for p in postings:
         co, title, url = p.get("company", ""), p.get("title", ""), p.get("url", "")
         if not co or not title:
             continue
-        if job_key.find_duplicate(co, title, url, existing):
-            out["duplicates"] += 1
-            continue
+        mine, hits = job_key.match_keys(co, title, url), []
+        for ek, ec, et, eu in existing:
+            if mine & job_key.match_keys(ec, et, eu):
+                d = by_key.get(ek) or store.get(conn, "roles", job_key.doc_id(ek))     # the second is a role added earlier in this batch
+                if d:
+                    hits.append(d)
+        repost_of = None
+        if hits:
+            verdict, last = judge_repeat([h["data"] for h in hits], url, now, days)
+            if verdict == "dup":
+                out["duplicates"] += 1
+                tally(p, "dup")
+                continue
+            if verdict == "hold":
+                # Applied recently and not a repost: stay off the board, but remember it was seen again.
+                h = next(h for h in hits if h["data"] is last)
+                data = dict(h["data"], seen_again=int(h["data"].get("seen_again") or 0) + 1, last_seen=today)
+                store.set_doc(conn, "roles", h["id"], data, if_version=h["version"], by="intake")
+                out["held"].append(data.get("key") or h["id"])
+                tally(p, "held")
+                continue
+            repost_of = last.get("key") or ""
         k = job_key.key(co, title)
+        if repost_of:
+            k = f"{k}|repost-{today}"
         gates, fails, flags = gate(p, config, rel)
         url = url or p.get("apply_url", "")
         link = url if str(url).startswith("http") else ""
         data = {"key": k, "date_found": today, "company": co, "title": title, "location": p.get("location", ""),
                 "work_mode": "remote" if p.get("remote") else "", "pay": p.get("pay_text", ""), "fit_pct": "",
-                "decision": "", "source": "board", "channel": CHANNEL, "link": link, "ats": p.get("ats", ""),
+                "decision": "", "source": str(p.get("source") or "board")[:30], "channel": CHANNEL, "link": link, "ats": p.get("ats", ""),
                 "label": keyword_label(p, terms), "label_mode": "no-ai",
                 "gates": {n: g["verdict"] for n, g in gates.items()}, "flags": flags,
                 "reason_or_gaps": "; ".join(fails or flags)}
+        if repost_of:
+            data.update(reposted_of=repost_of, repost_note=f"You applied to this role before ({repost_of.split('|')[0]}); it looks reposted.")
+            out["reposts"].append(k)
         if str(p.get("text") or "").strip():
             data["posting"] = str(p["text"])[:200_000]      # kept so Build now does not ask for a paste
         if fails:
             data.update(status="skipped (gate)", decision="skip", gate_review="pending")
             out["skipped"].append(k)
+            tally(p, "gated", fails[0].split(":")[0])
         else:
             data.update(status="build on request", decision="queued")
             out["added"].append(k)
+            tally(p, "added")
         store.set_doc(conn, "roles", job_key.doc_id(k), data, by="intake")
         existing.append((k, co, title, link))
+    learned.record_feeds(conn, feeds)
+    out["feeds"] = feeds
     return out

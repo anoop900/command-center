@@ -77,7 +77,8 @@ def build_roles(rows, extra, today, rank=None, age=DEFAULT_MAX_AGE):
              "link": link if str(link).startswith("http") else "", "gaps": r.get("reason_or_gaps", ""),
              "found": r.get("date_found", ""), "applied": r.get("date_applied", ""), "follow_up": r.get("follow_up", ""),
              "source": r.get("source", ""), "channel": r.get("channel", ""), "kit": r.get("kit", ""), "why": "", "warm": "", "posted": "",
-             "label": r.get("label", ""), "label_mode": r.get("label_mode", ""), "gate_review": r.get("gate_review", "")}
+             "label": r.get("label", ""), "label_mode": r.get("label_mode", ""), "gate_review": r.get("gate_review", ""),
+             "repost": r.get("repost_note", ""), "seen_again": r.get("seen_again", 0)}
         x["likelihood"], x["rank_why"] = rank(r.get("title", "")) if rank else (0, "")
         x.update({a: b for a, b in extra.get(k, {}).items() if a in ("why", "warm", "posted", "kit")})
         if x["stage"] == "ready" and not x["kit"]:

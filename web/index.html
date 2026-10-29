@@ -178,7 +178,9 @@ a.btn{text-decoration:none}
     <div id="view-today" style="display:grid;gap:22px">
       <div id="today-main"><header><h1 id="greet">Good morning.</h1><div class="sub" id="stamp">Loading today's plan…</div>
         <div class="actions" style="margin-top:8px"><button class="btn primary" id="addrole-open">+ Add a role manually</button>
-          <span class="note">Found a job yourself? Add it here and request a kit.</span></div></header>
+          <span class="note">Found a job yourself? Add it here and request a kit.</span>
+          <button class="btn" id="runnow" title="Runs today's morning update now: reads your job alerts and boards, scores new roles, refreshes the board. Use it if the scheduled run failed or did not happen.">Run now</button>
+          <span class="note" id="runnow-note" role="status"></span></div></header>
       <div class="builds" id="builds" hidden></div>
       <div id="banner" hidden></div>
       <section class="modepanel" id="modepanel" hidden></section>
@@ -268,7 +270,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 const LABEL = {review:'Review requested', applied:'Applied', skipped:'Not applying', followed_up:'Followed up', interview:'Interview', callback:'Got a call back', next_round:'Next round', offer:'Offer', rejected:'Rejected', withdrew:'Withdrew', no_response:'No response', build_now:'Build requested', done:'Done', gate_apply:'Applying anyway', gate_later:'Decide later', gate_skip:'Not applying'};
 const STATUS = {applied:'applied', interview:'interviewing', callback:'interviewing (call back)', next_round:'interviewing (next round)', offer:'offer', rejected:'rejected', no_response:'closed (no response)'};
 const WITHDRAW = ['Pay too low','Role not as described','Took another offer','Location / commute','Process too slow','Lost interest'];
-const SKIP = ['Not a match','Pay too low','Location','Too technical / coding','Level wrong','Contract vs permanent','Company / culture','Already applied elsewhere','Not interested'];
+const SKIP = ['Not a match','Pay too low','Salary not shown','Location','Remote / hybrid mismatch','Too technical / coding','Level wrong','Too junior','Too senior','Wrong industry','Contract vs permanent','Company / culture','Bad reviews','Recruiter / agency posting','Work authorization needed','Posting expired or duplicate','Already applied elsewhere','Not interested'];
 // Private settings (db doc config/settings, written at setup; never in the repo):
 // {owner, title, kit_root, pc (kits also copied to the PC), pc_runs (scheduled runs need the PC), voice, facts, offer: {perm: [floor, target], contract: [floor, target]}, offer_text, refs_hint,
 //  builder_trigger, assistant_trigger, calendar: "outlook"|"google"}
@@ -547,7 +549,7 @@ function renderToday(){
   const tri = R.filter(r => r.stage === 'new').sort((a, b) => (isManual(b) - isManual(a)) || ((parseInt(b.fit) || 0) + (b.likelihood || 0)) - ((parseInt(a.fit) || 0) + (a.likelihood || 0)));
   $('new-h').textContent = `New roles to triage (${tri.length})`;
   $('triage').innerHTML = tri.map(r => `<div class="item" data-p="${parseInt(r.fit) >= 80 ? 1 : 3}"><div class="top"><span class="t">${esc(r.company)} · ${esc(r.title)}</span><span class="tag">${esc(r.fit || '?')}</span></div>
-    <div class="d">${esc([r.location, r.mode, r.pay].filter(Boolean).join(' · '))}${r.why ? ' — ' + esc(r.why) : ''}${r.likelihood > 0 ? ' · ' + esc(r.rank_why) : ''}</div><div class="actions">${roleButtons(r, true)}</div></div>`).join('') || '<div class="empty">No new roles waiting.</div>';
+    <div class="d">${esc([r.location, r.mode, r.pay].filter(Boolean).join(' · '))}${r.why ? ' — ' + esc(r.why) : ''}${r.likelihood > 0 ? ' · ' + esc(r.rank_why) : ''}${r.repost ? ' · ' + esc(r.repost) : ''}${r.stage === 'applied' && r.seen_again ? ' · seen again ' + esc(String(r.seen_again)) + 'x since you applied (kept off the board)' : ''}</div><div class="actions">${roleButtons(r, true)}</div></div>`).join('') || '<div class="empty">No new roles waiting.</div>';
   $('agenda').innerHTML = (TODAY.agenda || []).map(a => `<div class="item" data-p="${a.type === 'interview' ? 1 : 3}"><div class="top"><span class="t">${esc(a.title)}</span><span class="tag">${esc(a.when)}</span></div>${a.detail ? `<div class="d">${esc(a.detail)}</div>` : ''}${a.prep || a.cal ? `<div class="actions">${a.prep ? `<button class="btn" data-prep="${esc(a.prep)}">Open prep</button>` : ''}${a.cal ? calBtn(a.cal) : ''}</div>` : ''}</div>`).join('') || '<div class="empty">Nothing scheduled.</div>';
   $('inbox').innerHTML = (TODAY.inbox || []).map(m => `<div class="item"><div class="top"><span class="t">${esc(m.subject)}</span><span class="tag">${esc(m.from)}</span></div>${m.why ? `<div class="d">${esc(m.why)}</div>` : ''}${m.link ? `<div class="actions"><a class="btn" href="${esc(m.link)}" target="_blank" rel="noopener">Open email</a></div>` : ''}</div>`).join('') || '<div class="empty">Inbox is clear.</div>';
   $('loops').innerHTML = (TODAY.loops || []).filter(l => !pending['todo:loop-' + l.id]).map(l => `<div class="item"><div class="top"><span class="t">${esc(l.title)}</span>${l.due ? `<span class="tag">${esc(l.due)}</span>` : ''}</div>${l.detail ? `<div class="d">${esc(l.detail)}</div>` : ''}<div class="actions"><button class="btn" data-done="loop-${esc(l.id)}">Closed</button></div></div>`).join('') || '<div class="empty">No open loops.</div>';
@@ -628,19 +630,35 @@ function openRole(key){
       <dt>Location</dt><dd>${esc([r.location, r.mode].filter(Boolean).join(' · ')) || '—'}</dd>
       <dt>${r.stage === 'gate_failed' ? 'Why it failed your rules' : 'Gaps'}</dt><dd>${esc(r.gaps) || (r.stage === 'gate_failed' ? 'a rule you set' : '—')}</dd><dt>Warm path</dt><dd>${esc(r.warm) || '—'}</dd>
       <dt>Kit</dt><dd>${kitWhere(r)}${kitButtons(r) ? `<div class="actions" style="margin-top:6px">${kitButtons(r)}</div>` : ''}</dd>
+      ${untracedRows(r)}
       ${r.review ? `<dt>Review</dt><dd>${esc(reviewSummary(r.review))}${r.review.at ? ' · ' + esc(String(r.review.at).slice(0, 10)) : ''}${(r.review.notes || []).length ? `<ul>${[].concat(r.review.notes).slice(0, 6).map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}${reviewEdits(r)}<span class="note">Full review: Application_Kit.md, section "Independent review".</span></dd>` : ''}
       ${r.link ? `<dt>Posting</dt><dd><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.link)}</a></dd>` : ''}<dt>Found</dt><dd>${esc(r.found)}${r.source ? ' via ' + esc(r.source) : ''}</dd>
       ${r.applied ? `<dt>Applied</dt><dd>${esc(r.applied)}</dd>` : ''}${r.follow_up ? `<dt>Follow-up</dt><dd>${esc(r.follow_up)}</dd>` : ''}</dl></div>
-    ${r.stage === 'applied' || r.stage === 'interviewing' ? fuBox(r) : ''}`;
+    ${fuBox(r)}`;
   $('drawer').hidden = false; $('close').focus();
 }
+// Statements in the kit that the claim trace could not tie to the profile. "Checked" is a per-browser reminder only.
+const untracedKey = (r, c) => 'cc-checked:' + r.key + ':' + c.claim.slice(0, 60);
+const untracedDone = (r, c) => { try { return localStorage.getItem(untracedKey(r, c)) === '1'; } catch (e) { return false; } };
+function untracedRows(r){
+  const list = ((KIDX[r.key] || {}).unsupported) || [];
+  if (!list.length) return '';
+  const open = list.filter(c => !untracedDone(r, c)).length;
+  return `<dt>Not traced to your profile</dt><dd><p class="note"><b>${list.length} statement${list.length === 1 ? '' : 's'} in this kit ${list.length === 1 ? 'is' : 'are'} not backed by your profile${open < list.length ? ' (' + open + ' still to check)' : ''}.</b> If one is true, add the fact in your profile and press Rebuild kit. If it is not true, do not send it.</p>
+    <ol class="edits">${list.map((c, i) => `<li><label><input type="checkbox" data-untraced="${i}" data-key="${esc(r.key)}"${untracedDone(r, c) ? ' checked' : ''}> <b>${esc(c.claim)}</b></label>${c.reason ? `<br><span class="note">${esc(c.reason)}</span>` : ''}</li>`).join('')}</ol>
+    <div class="actions"><button class="btn" data-wiz="gprofile">Open Profile</button>${hasKit(r) ? `<button class="btn" data-build="${esc(r.key)}">Rebuild kit</button>` : ''}</div></dd>`;
+}
 function fuBox(r){
-  return `<div class="box fu"><h2>Draft a follow-up</h2>
-    <div class="grid2"><label for="fu-to">Writing to<select id="fu-to"><option>Hiring manager</option><option>Recruiter</option><option>LinkedIn connection at the company</option></select></label>
+  const applied = r.stage === 'applied' || r.stage === 'interviewing';
+  return `<div class="box fu"><h2>${applied ? 'Draft a follow-up' : 'Draft a message'}</h2>
+    <p class="note">For a recruiter, a hiring manager or a connection. Say what you want in your own words, or leave it blank for a standard ${applied ? 'follow-up' : 'note about this role'}.</p>
+    <div class="grid2"><label for="fu-to">Writing to<select id="fu-to"><option>Hiring manager</option><option>Recruiter</option><option>LinkedIn connection at the company</option><option>Someone who posted this role</option></select></label>
     <label for="fu-via">Sent as<select id="fu-via"><option value="linkedin">LinkedIn message</option><option value="note">Connection note (under 300 characters)</option><option value="email">Email</option></select></label></div>
-    <label for="fu-name">First name (optional)<input id="fu-name" autocomplete="off"></label>
+    <label for="fu-name">First name (optional)<input id="fu-name" autocomplete="off" maxlength="60"></label>
+    <label for="fu-req">What do you want to say? (optional)<textarea id="fu-req" rows="3" maxlength="1500" placeholder="e.g. Ask who is hiring for this and mention my 6 years in operations"></textarea></label>
+    <label for="fu-theirs">Their message, if you are replying (optional)<textarea id="fu-theirs" rows="3" maxlength="6000" placeholder="Paste the message you received"></textarea></label>
     <div class="actions"><button class="btn primary" id="fu-go" data-key="${esc(r.key)}">Write it</button><button class="btn" id="fu-copy" hidden>Copy</button></div>
-    <textarea id="fu-out" aria-label="Draft" hidden></textarea><p class="note" id="fu-note">Drafted from your verified facts. Nothing is sent.</p></div>`;
+    <input id="fu-subject" aria-label="Subject" hidden><textarea id="fu-out" aria-label="Draft" hidden></textarea><p class="note" id="fu-note">Drafted from your profile only. Nothing is sent. You send it yourself.</p></div>`;
 }
 function openPrep(id){
   const p = PREPS[id];
@@ -683,13 +701,33 @@ function openAddRole(){
   $('panel').innerHTML = `<button class="btn" id="close">Back</button><h1>Add a role manually</h1>
     <div class="sub">Feel free to add a role that you found and are interested in applying to. It joins your Job board like any other role, you can request a kit and apply from there, and Command Center learns from your choice.</div>
     <div class="box"><div class="form"><input id="ar-co" maxlength="200" placeholder="Company (required)"><input id="ar-title" maxlength="200" placeholder="Job title (required)">
-    <input id="ar-link" maxlength="2000" placeholder="Job link (optional if you paste the description)"></div>
+    <input id="ar-link" maxlength="2000" placeholder="Job link (optional if you paste the description)">
+    <select id="ar-via" aria-label="Where did you find it?"><option value="">Where did you find it? (helps the search learn)</option><option>LinkedIn</option><option>Recruiter</option><option>Referral</option><option>Company site</option><option>Job board</option><option>Other</option></select></div>
     <textarea id="ar-posting" rows="10" style="width:100%;margin-top:8px" maxlength="200000" placeholder="Job description (optional if you add a link)"></textarea>
     <p class="note" id="ar-err" role="alert"></p>
     <div class="actions"><button class="btn primary" data-addrole="1">Add and build kit</button><button class="btn" data-addrole="0">Add only</button></div>
     <p class="note">Nothing is sent or submitted. The description stays on this computer. If a link cannot be read, you will be asked to paste the description.</p></div>`;
   $('drawer').hidden = false; $('ar-co').focus();
 }
+let RUNNOW_TIMER = null;
+async function runNowCheck(start){
+  const note = $('runnow-note'), btn = $('runnow'); if (!note || !btn) return;
+  try {
+    const res = await fetch('/run-now', start ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'} : undefined);
+    const j = await res.json();
+    if (!res.ok) { note.textContent = errMsg(j) || 'Could not start the run.'; btn.disabled = false; return; }
+    if (j.state === 'running') {
+      btn.disabled = true; note.textContent = 'Running the ' + (j.run || 'morning') + ' update… this takes a few minutes.';
+      clearTimeout(RUNNOW_TIMER); RUNNOW_TIMER = setTimeout(() => runNowCheck(false), 4000); return;
+    }
+    btn.disabled = false;
+    if (j.state === 'failed') note.textContent = (j.message || 'The run stopped.') + ' ' + (j.fix || '');
+    else if (j.state === 'ok') { note.textContent = 'Done.'; toast('The update finished.'); if (typeof ccRefresh === 'function') ccRefresh(); }
+    else note.textContent = j.due ? 'The scheduled run has not finished today. Press Run now.' : '';
+  } catch (e) { note.textContent = 'Could not reach Command Center. Is it still running?'; btn.disabled = false; }
+}
+const runNow = () => runNowCheck(true);
+setTimeout(() => runNowCheck(false), 1500);
 async function addRole(build){
   const v = id => $(id).value.trim(), err = m => { $('ar-err').textContent = m; };
   if (!v('ar-co') || !v('ar-title')) return err('Enter the company and the job title.');
@@ -697,11 +735,11 @@ async function addRole(build){
   err('Adding…');
   try {
     const res = await fetch('/add-role', {method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({company: v('ar-co'), title: v('ar-title'), link: v('ar-link'), posting: v('ar-posting'), build})});
+      body: JSON.stringify({company: v('ar-co'), title: v('ar-title'), link: v('ar-link'), posting: v('ar-posting'), found_via: $('ar-via').value, build})});
     const j = await res.json();
     if (!res.ok) return err(errMsg(j) || 'Could not add the role.');
     closeDrawer();
-    if (j.created === false && j.duplicate_of) return toast('That role is already on the board.');
+    if (j.created === false && j.duplicate_of) return toast('That role is already on the board' + (j.was ? ' (' + j.was + ')' : '') + '.');
     toast(build ? 'Role added. Building the kit; progress shows at the top of Today.' : 'Role added to the Job board.');
     if (j.job && j.job.state === 'needs_posting') setTimeout(() => { const r = ROLES.find(x => docId(x.key) === j.id); if (r) openPosting(r.key, 'kit', j.job.reason); }, 1200);
   } catch (e) { err('Could not reach Command Center. Is it still running?'); }
@@ -929,15 +967,18 @@ async function draftContact(id){
 const DEFAULT_VOICE = `Plain, short, declarative sentences. No flattery, no exclamation marks, one clear ask. Use only the facts given; never invent numbers, names, or experience.`;
 let VOICE = DEFAULT_VOICE, FACTS = '';
 async function draft(key){
-  const r = byKey(key); if (!r) return;
-  const out = $('fu-out'), note = $('fu-note');
-  if (!sample) { note.textContent = 'Drafting needs an AI connected. Open Settings to connect one.'; return; }
-  const to = $('fu-to').value, via = $('fu-via').value, name = $('fu-name').value.trim();
-  const len = via === 'note' ? 'Under 280 characters.' : via === 'email' ? 'Email: first line "Subject: ...", body 80-120 words.' : 'LinkedIn message, 50-90 words.';
-  const prompt = `${VOICE}\n${FACTS}\nRole: ${r.title} at ${r.company}. Status: ${r.status}. ${r.applied ? 'Applied ' + r.applied + ' (' + days(r.applied) + ' days ago).' : ''}\nWrite a follow-up to ${name || 'the person'} (${to}). ${len} Output only the message.`;
-  $('fu-go').disabled = true; out.hidden = false; out.value = ''; note.textContent = 'Writing...';
-  try { const res = await sample(prompt, {onText: ({text}) => { out.value = text; }, modelTier: 'quick', cache: false}); out.value = res.text.trim(); $('fu-copy').hidden = false; note.textContent = 'Edit, then copy and send it yourself.'; }
-  catch (e) { note.textContent = 'Could not write a draft right now.'; }
+  const out = $('fu-out'), note = $('fu-note'), subj = $('fu-subject');
+  const body = {key, channel: $('fu-via').value, to: $('fu-to').value, name: $('fu-name').value.trim(), request: $('fu-req').value.trim(), theirs: $('fu-theirs').value.trim()};
+  $('fu-go').disabled = true; note.textContent = 'Writing…';
+  try {
+    const res = await fetch('/outreach', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    const j = await res.json();
+    if (!res.ok) { note.textContent = errMsg(j) || 'Could not write a draft right now.'; return; }
+    if (j.status === 'waiting') { note.textContent = 'Waiting for a pasted answer. See the AI cards.'; return; }
+    if (j.status !== 'ok') { note.textContent = (j.reason || 'No AI is connected.') + ' Open Setup > AI to connect one.'; return; }
+    out.hidden = false; out.value = j.message; subj.hidden = !j.subject; subj.value = j.subject || '';
+    $('fu-copy').hidden = false; note.textContent = 'Edit it, then copy and send it yourself.';
+  } catch (e) { note.textContent = 'Could not reach Command Center. Is it still running?'; }
   finally { $('fu-go').disabled = false; }
 }
 function toast(t, ms){ const el = $('toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, ms || Math.min(2600 + String(t).length * 40, 12000)); }
@@ -956,9 +997,11 @@ function show(v){
   if (v === 'learning') loadLearning();
 }
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tile],#addrole-open,[data-addrole],[data-posting-go],[data-posting],[data-dlurl],#t-add,#fab,#ask,[data-gate],[data-learned],[data-learned-list],[data-learned-levels],[data-newtask],[data-tdone],[data-tsnooze],[data-tdel],#o-save,#r-save,[data-applyedit],[data-oarch],[data-rask],[data-rdel],[data-adone],[data-touch],[data-snooze],[data-archive],[data-nudgeoff],[data-nudgeon],[data-bseen],[data-rseen],[data-dl],[data-openkit],[data-review],[data-cover],[data-cseen],[data-cdraft],#c-add,[data-view],[data-act],[data-open],[data-filter],[data-why-for],[data-why],[data-why-other],[data-build],[data-done],[data-prep],[data-fu],#close,#fu-go,#fu-copy');
+  const t = e.target.closest('[data-tile],#addrole-open,#runnow,[data-untraced],[data-addrole],[data-posting-go],[data-posting],[data-dlurl],#t-add,#fab,#ask,[data-gate],[data-learned],[data-add-include],[data-learned-list],[data-learned-levels],[data-newtask],[data-tdone],[data-tsnooze],[data-tdel],#o-save,#r-save,[data-applyedit],[data-oarch],[data-rask],[data-rdel],[data-adone],[data-touch],[data-snooze],[data-archive],[data-nudgeoff],[data-nudgeon],[data-bseen],[data-rseen],[data-dl],[data-openkit],[data-review],[data-cover],[data-cseen],[data-cdraft],#c-add,[data-view],[data-act],[data-open],[data-filter],[data-why-for],[data-why],[data-why-other],[data-build],[data-done],[data-prep],[data-fu],#close,#fu-go,#fu-copy');
   if (!t) { if (e.target === $('drawer')) closeDrawer(); return; }
+  if (t.dataset.untraced !== undefined) { const r = byKey(t.dataset.key); const c = r && (((KIDX[r.key] || {}).unsupported) || [])[+t.dataset.untraced]; if (c) { try { localStorage.setItem(untracedKey(r, c), t.checked ? '1' : '0'); } catch (err) {} openRole(r.key); } return; }
   if (t.id === 'addrole-open') return openAddRole();
+  if (t.id === 'runnow') return runNow();
   if (t.dataset.addrole !== undefined) return addRole(t.dataset.addrole === '1');
   if (t.dataset.tile) return openTile(t.dataset.tile);
   if (t.dataset.view) return show(t.dataset.view);
@@ -996,10 +1039,11 @@ document.addEventListener('click', e => {
   if (t.dataset.adone) return patch(ADMIN, 'admin', t.dataset.adone, {done: true, done_at: todayISO()}, 'Done');
   if (t.id === 'close') return closeDrawer();
   if (t.id === 'fu-go') return draft(t.dataset.key);
-  if (t.id === 'fu-copy') { const v = $('fu-out').value; navigator.clipboard?.writeText(v).then(() => toast('Copied'), () => { $('fu-out').select(); toast('Selected. Press Ctrl+C.'); }); return; }
+  if (t.id === 'fu-copy') { const v = ($('fu-subject').hidden ? '' : 'Subject: ' + $('fu-subject').value + '\n\n') + $('fu-out').value; navigator.clipboard?.writeText(v).then(() => toast('Copied'), () => { $('fu-out').select(); toast('Selected. Press Ctrl+C.'); }); return; }
   if (t.dataset.filter) { filter = t.dataset.filter; return renderBoard(); }
   if (t.dataset.learned) { e.stopPropagation(); learnedPost({action: t.dataset.learned, term: t.dataset.term}).then(j => j && loadLearned()); return; }
   if (t.dataset.learnedLevels) { e.stopPropagation(); const items = t.dataset.learnedLevels === 'suggest' ? SUGGESTED_LEVELS : [...document.querySelectorAll('.lw-level:checked')].map(x => x.value); learnedPost({action: 'levels', items}).then(j => { if (j) { toast('Saved'); loadLearned(); } }); return; }
+  if (t.dataset.addInclude) { e.stopPropagation(); const cur = $('lw-include').value.split(','); learnedPost({action: 'include', items: cur.concat(t.dataset.addInclude.split(','))}).then(j => { if (j) { toast('Saved'); loadLearned(); } }); return; }
   if (t.dataset.learnedList) { e.stopPropagation(); const k = t.dataset.learnedList; learnedPost({action: k, items: $('lw-' + k).value.split(',')}).then(j => { if (j) { toast('Saved'); loadLearned(); } }); return; }
   if (t.dataset.whyFor) { e.stopPropagation(); return openReasons(t.dataset.whyFor, t.dataset.key); }
   if (t.dataset.why) { closeDrawer(); return record(t.dataset.kind, t.dataset.key, {reason: t.dataset.why}); }
@@ -1143,6 +1187,13 @@ async function loadLearned(){
   const hints = (d.hints || []).map(h => '<div class="item"><div class="top"><span class="t">' + (h.kind === 'drop' ? 'Consider dropping ' : 'Keep using ') + esc(h.source) + '</span>'
     + '<button class="btn" data-learned="' + (h.forgotten ? 'restore' : 'forget') + '" data-term="' + esc(h.id) + '">' + (h.forgotten ? 'Restore' : 'Forget') + '</button></div>'
     + '<div class="d">' + (h.forgotten ? 'Hidden. ' : '') + (h.kind === 'drop' ? 'You marked ' + h.neg + ' roles from it as not a match and applied to none.' : 'You applied to ' + h.pos + ' roles from it and rejected none.') + ' A suggestion only; nothing changes by itself.</div></div>').join('');
+  const sug = (h, extra) => '<div class="item"><div class="top"><span class="t">' + esc(h.text) + '</span>'
+    + (extra || '') + '<button class="btn" data-learned="' + (h.forgotten ? 'restore' : 'forget') + '" data-term="' + esc(h.id) + '">' + (h.forgotten ? 'Restore' : 'Forget') + '</button></div>'
+    + '<div class="d">' + (h.forgotten ? 'Hidden. ' : '') + 'Where to change it: ' + esc(h.where) + '. A suggestion only; nothing changes by itself.</div></div>';
+  const prefs = (d.prefs || []).map(h => sug(h)).join('');
+  const missed = (d.missed || []).map(h => sug(h, h.add_include ? '<button class="btn" data-add-include="' + esc(h.add_include.join(',')) + '">Add them</button>' : '')).join('');
+  const FEEDC = f => esc(f.source) + ': ' + f.seen + ' seen, ' + f.added + ' added, ' + f.gated + ' failed your rules, ' + f.dup + ' already known' + (f.held ? ', ' + f.held + ' kept off (already applied)' : '');
+  const feeds = (d.feeds || []).map(f => '<div class="item"><div class="d">' + FEEDC(f) + '</div></div>').join('');
   const kp = (d.kitprefs || []).map(h => '<div class="item"><div class="top"><span class="t">' + esc(h.phrase) + '</span>'
     + '<button class="btn" data-learned="' + (h.forgotten ? 'restore' : 'forget') + '" data-term="' + esc(h.id) + '">' + (h.forgotten ? 'Restore' : 'Forget') + '</button></div>'
     + '<div class="d">' + (h.forgotten ? 'Not used any more. ' : '') + 'You took this wording out of ' + h.kits + ' kits by hand. New kits are asked to avoid it.</div></div>').join('');
@@ -1159,6 +1210,9 @@ async function loadLearned(){
     + '<p class="note">Every Not applying, Applied and Apply anyway press teaches it. A word becomes a rule after 2 matching not-a-match choices and none that contradict it. Roles that match a rule are moved to Failed your rules for you to check; nothing is deleted, and pay, location, work authorization and never-submit rules are never changed by learning.</p>'
     + '<div class="list">' + (rules || '<div class="item"><div class="d">Nothing learned yet. Use Not applying with a reason (Not a match is the strongest signal).</div></div>') + '</div>'
     + (hints ? '<h2>Source suggestions</h2><div class="list">' + hints + '</div>' : '')
+    + (prefs ? '<h2>What your other reasons say</h2><div class="list">' + prefs + '</div>' : '')
+    + (missed ? '<h2>Roles you added that I missed, and feeds that send the wrong roles</h2><div class="list">' + missed + '</div>' : '')
+    + (feeds ? '<h2>What each feed and job alert sent</h2><div class="list">' + feeds + '</div>' : '')
     + (kp ? '<h2>Wording you remove from kits</h2><div class="list">' + kp + '</div>' : '')
     + tm
     + '<h2>Outcomes so far</h2><div class="list">' + (outc || '<div class="item"><div class="d">Nothing to show until a source, level or fit band has at least 2 choices.</div></div>') + '</div>'

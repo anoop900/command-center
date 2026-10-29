@@ -74,6 +74,26 @@ class JobTests(unittest.TestCase):
         self.assertEqual(out["state"], "needs_posting")
         self.assertFalse((self.home / "kits").exists())
 
+    def test_statements_the_trace_could_not_support_are_saved_for_the_page(self):
+        claims = [{"claim": "Led a team of 40", "reason": "profile says 12"}, {"claim": "Won an award", "reason": "not in profile"}]
+
+        def traced(task, prompt):
+            return json.dumps(TAILOR if task.name == "tailor" else {"unsupported": claims[:2]})
+        self.start(run=traced)
+        j = self.state()
+        self.assertIn("2 statement(s) could not be traced", j["reason"])
+        self.assertIn("Details", j["reason"])
+        rows = store.get(self.conn, "kitindex", "contoso-lead")["data"]["unsupported"]
+        self.assertEqual(rows[0], {"claim": "Led a team of 40", "reason": "profile says 12"})
+        self.assertEqual(rows[1]["claim"], "Won an award")
+
+    def test_unsupported_rows_survive_hostile_trace_data(self):
+        for bad in (None, "x", [None, "junk", {"claim": 5}, {"claim": "  "}], {"a": 1}):
+            self.assertEqual(jobs._unsupported({"trace": {"unsupported": bad}}), [])
+        self.assertEqual(len(jobs._unsupported({"trace": {"unsupported": [{"claim": "c"}] * 80}})), 50)
+        row = jobs._unsupported({"trace": {"unsupported": [{"claim": "x" * 900, "reason": None}]}})[0]
+        self.assertEqual((len(row["claim"]), row["reason"]), (400, ""))
+
     def test_kit_build_publishes_ready_state_files_and_board_row(self):
         self.assertEqual(self.start()["state"], "running")
         j = self.state()

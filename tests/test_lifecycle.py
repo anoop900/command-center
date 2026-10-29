@@ -15,6 +15,17 @@ from cc import cli, lifecycle, scheduler, selfwatch
 from tests.test_scheduler import FakeOS
 
 
+_DEFAULT_NAMES = mock.patch.object(scheduler, "scope", return_value="")
+
+
+def setUpModule():
+    _DEFAULT_NAMES.start()
+
+
+def tearDownModule():
+    _DEFAULT_NAMES.stop()
+
+
 class Base(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

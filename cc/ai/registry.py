@@ -137,6 +137,43 @@ def _cover_validate(obj, inputs):
     return errs
 
 
+OUTREACH_CHANNELS = ("email", "linkedin", "note")
+_OUTREACH_FILLER = ("excited", "thrilled", "passionate", "just checking in", "touch base", "circle back")
+
+
+def _outreach_input(inputs):
+    _need(inputs, "profile", "role", "channel")
+    if inputs["channel"] not in OUTREACH_CHANNELS:
+        raise ValueError("channel must be email, linkedin or note")
+    return (trust.wrap_untrusted(_text(inputs["profile"]), "PROFILE") + "\n" + trust.wrap_untrusted(_text(inputs["role"], 2000), "ROLE")
+            + f"\nCHANNEL: {inputs['channel']}" + _opt(inputs, "posting", "POSTING") + _opt(inputs, "theirs", "THEIRS")
+            + _opt(inputs, "request", "REQUEST"))
+
+
+def _outreach_validate(obj, inputs):
+    """Reject, never repair: shape for the channel, placeholders, filler, dashes, pay talk, and any figure not in the inputs."""
+    text, ch, errs = obj["message"], inputs["channel"], []
+    n = len(text.split())
+    lo, hi = {"email": (40, 170), "linkedin": (20, 110), "note": (1, 60)}[ch]
+    if not lo <= n <= hi:
+        errs.append(f"a {ch} message must be {lo} to {hi} words, got {n}")
+    if ch == "note" and len(text) > 280:
+        errs.append("a connection note must be under 280 characters")
+    if ch != "email" and obj.get("subject"):
+        errs.append("only an email has a subject")
+    if re.search(r"[\[\]{}<>]", text + obj.get("subject", "")):
+        errs.append("the message must not contain brackets or placeholders")
+    if "—" in text or "–" in text:
+        errs.append("do not use dashes as punctuation")
+    low = _norm(text)
+    errs += [f"filler phrase: {w!r}" for w in _OUTREACH_FILLER if w in low]
+    if re.search(r"salary|compensation|\$\s?\d|\bpay\b", low):
+        errs.append("do not mention salary or pay")
+    known = _norm(" ".join(str(inputs.get(k, "")) for k in ("profile", "role", "posting", "theirs", "request")))
+    errs += [f"figure {x!r} is not in the inputs" for x in dict.fromkeys(re.findall(r"\d[\d,.]*\d|\d", text)) if x not in known]
+    return errs
+
+
 def _ask_input(inputs):
     _need(inputs, "question")
     return trust.wrap_untrusted(_text(inputs["question"], 4000), "QUESTION") + _opt(inputs, "context", "CONTEXT")
@@ -339,6 +376,10 @@ TASKS = {t.name: t for t in (
           "properties": {**_FLAG, "greeting": _S, "closing": _S,
                          "paragraphs": {"type": "array", "minItems": 2, "maxItems": 5, "items": _STR}}},
          _cover_input, _cover_validate),
+    Task("outreach", "outreach", "outreach.md",
+         {"type": "object", "required": ["message"],
+          "properties": {**_FLAG, "subject": {"type": "string", "maxLength": 150}, "message": {"type": "string", "maxLength": 3000}}},
+         _outreach_input, _outreach_validate),
     Task("ask", None, "ask.md",
          {"type": "object", "required": ["answer"],
           "properties": {**_FLAG, "answer": {"type": "string", "maxLength": 8000}}},

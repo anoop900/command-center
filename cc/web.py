@@ -14,11 +14,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from . import aiprov, api, assets, jobs, backup, coach, config, drafts, learned, learning, modes, problems, profile, qcrules, resume, rules_cfg, scheduler, store, thirdparty, wizard
+from .rules import job_key
+from . import aiprov, api, assets, jobs, backup, coach, config, drafts, learned, learning, modes, problems, profile, qcrules, resume, rules_cfg, runnow, scheduler, store, thirdparty, wizard
 from .ai import RunnerError, budget, features, runners
 from .kits.pipeline import KitError
 from .runs import actions, board
-from . import kitfolder, kitlink
+from . import extension_api, kitfolder, kitlink
 
 WEB = assets.find("web")
 STATIC = {"/": ("index.html", "text/html; charset=utf-8"), "/shim.js": ("shim.js", "text/javascript; charset=utf-8"),
@@ -101,6 +102,7 @@ class _Handler(BaseHTTPRequestHandler):
     ai_runner = None  # tests inject a fake model runner; None means the configured one
     sched_runner = None  # tests inject a fake OS scheduler; None means the real one
     sched_platform = None
+    run_popen = None     # tests inject a fake process launcher for Run now
     server_version = "cc-web"
 
     def log_message(self, *_):
@@ -141,7 +143,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(403, {"error": "bad host"})
             return False
         origin = self.headers.get("Origin")
-        if write and origin is not None and urlsplit(origin).netloc not in (f"127.0.0.1:{port}", f"localhost:{port}"):
+        # The browser extension is the one outside caller: its Origin is chrome-extension://<id> (a web page cannot
+        # send that), and it must say so in a header, for the one extension write only.
+        ext = (origin or "").startswith("chrome-extension://") and self.headers.get("X-CC-Extension") == "1"             and urlsplit(self.path).path == "/extension/applied"
+        if write and origin is not None and not ext and urlsplit(origin).netloc not in (f"127.0.0.1:{port}", f"localhost:{port}"):
             self._drain()
             self._send(403, {"error": "cross-site write refused"})
             return False
@@ -240,6 +245,8 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": str(e)})
             return self._send(200, f.read_bytes(), "application/octet-stream",
                               [("Content-Disposition", f'attachment; filename="{f.name}"')])
+        if path.startswith("/extension/"):
+            return self._extension_get(path)
         if path == "/wizard/profile":
             draft = drafts.read(self.cfg_file.parent, "profile")
             return self._send(200, {"state": draft or profile.load(self.cfg_file.parent), "draft": bool(draft),
@@ -257,7 +264,8 @@ class _Handler(BaseHTTPRequestHandler):
             except config.ConfigError as e:
                 return self._send(200, {"error": str(e)})
             return self._send(200, {"times": scheduler.current_times(cfg), "mode": cfg.mode.name,
-                                    "status": scheduler.status(self.sched_runner or scheduler.system_runner, self.sched_platform),
+                                    "status": scheduler.status(self.sched_runner or scheduler.system_runner, self.sched_platform,
+                                                                self.cfg_file.parent),
                                     "service": scheduler.service_status(self.sched_runner or scheduler.system_runner,
                                                                         self.sched_platform, self.cfg_file.parent),
                                     "runs_ai": modes.schedules_ai(cfg.mode.name)})
@@ -283,6 +291,12 @@ class _Handler(BaseHTTPRequestHandler):
             conn = store.connect(self.db_file)
             try:
                 return self._send(200, self._coach_snap(conn))
+            finally:
+                conn.close()
+        if path == "/run-now":
+            conn = store.connect(self.db_file)
+            try:
+                return self._send(200, runnow.status(conn, self.cfg_file.parent))
             finally:
                 conn.close()
         if path == "/learned":
@@ -329,6 +343,45 @@ class _Handler(BaseHTTPRequestHandler):
         if q.get("since") == [stamp]:
             return self._send(200, {"stamp": stamp, "unchanged": True})
         self._send(200, {"stamp": stamp, "docs": rows})
+
+    def _extension_get(self, path):
+        """Read-only answers for the browser extension: health, open roles with a kit, profile answers, a resume PDF."""
+        conn = store.connect(self.db_file)
+        try:
+            if path == "/extension/health":
+                ready = bool(profile.profile_json(profile.load(self.cfg_file.parent)).get("firstName"))
+                return self._send(200, {"ok": True, "roles": len(extension_api.roles(conn, self.kits_dir)), "profile": ready})
+            if path == "/extension/roles":
+                return self._send(200, {"roles": extension_api.roles(conn, self.kits_dir)})
+            if path == "/extension/profile":
+                state = profile.load(self.cfg_file.parent)
+                have = profile.profile_json(state)
+                return self._send(200, {"profile": have, "missing": [{"key": k, "label": lb} for k, lb, _, _ in profile.FIELDS
+                                                                      if k not in have]})
+            if path.startswith("/extension/resume/"):
+                f = extension_api.resume_file(conn, self.kits_dir, path[len("/extension/resume/"):])
+                if f is None:
+                    return self._send(404, {"error": "no resume for that role", "fix": "Build the kit for this role first."})
+                return self._send(200, f.read_bytes(), "application/pdf", [("X-Resume-Name", f.name)])
+            return self._send(404, {"error": "not found"})
+        finally:
+            conn.close()
+
+    def _extension_applied(self):
+        """Body: {key}. Sent only when the person clicks Mark applied on a thank-you page."""
+        data = self._json_body(MAX_BODY)
+        if data is None:
+            return
+        conn = store.connect(self.db_file)
+        try:
+            out = extension_api.mark_applied(conn, data.get("key"))
+        except (store.Conflict, sqlite3.Error):
+            return self._send(503, {"error": "database busy", "fix": "Try again in a moment."})
+        finally:
+            conn.close()
+        if out is None:
+            return self._send(404, {"error": "no such role", "fix": "Open the dashboard and mark it applied there."})
+        self._send(200, out)
 
     def _kit(self, name):
         root = self.kits_dir.resolve()
@@ -379,7 +432,7 @@ class _Handler(BaseHTTPRequestHandler):
             elif path == "/wizard/schedule":
                 runner = self.sched_runner or scheduler.system_runner
                 if data.get("action") == "remove":
-                    out = {"status": scheduler.remove(runner, self.sched_platform)}
+                    out = {"status": scheduler.remove(runner, self.sched_platform, self.cfg_file.parent)}
                 elif data.get("action") == "install":
                     out = {"status": scheduler.install(config.load(self.cfg_file), data, runner, self.sched_platform,
                                                        self.cfg_file.parent)}
@@ -437,6 +490,12 @@ class _Handler(BaseHTTPRequestHandler):
             return self._job()
         if path == "/add-role":
             return self._add_role()
+        if path == "/run-now":
+            return self._run_now()
+        if path == "/extension/applied":
+            return self._extension_applied()
+        if path == "/outreach":
+            return self._outreach()
         if path == "/kits-folder":
             return self._kits_folder()
         if path == "/kits-folder/open":
@@ -747,6 +806,52 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send(503, {"error": "database busy"})
         self._send(200, out)
 
+    def _outreach(self):
+        """Draft a message for a role. Body: {key, channel: email|linkedin|note, request?, theirs?, to?, name?}. Nothing is sent or saved."""
+        data = self._json_body(MAX_BODY_ASK)
+        if data is None:
+            return
+        from . import ai
+        from .ai import features, runners
+        from .kits.pipeline import KitError
+        key = data.get("key")
+        if not isinstance(key, str) or not key.strip() or len(key) > 400:
+            return self._send(400, {"error": "Choose a role first."})
+        conn = store.connect(self.db_file)
+        try:
+            cfg = config.load(self.cfg_file)
+            out = features.outreach_role(conn, job_key.doc_id(key), data.get("channel"), data.get("request"), data.get("theirs"),
+                                         cfg.mode.name, runners.make_runner(cfg, conn), self.cfg_file.parent,
+                                         to=data.get("to") or "", name=data.get("name") or "")
+        except KitError as e:
+            return self._send(400, {"error": str(e)})
+        except (config.ConfigError, ai.RunnerError) as e:
+            return self._send(200, {"status": "unavailable", "reason": str(e)})
+        except sqlite3.Error:
+            return self._send(503, {"error": "database busy"})
+        finally:
+            conn.close()
+        self._send(200, out)
+
+    def _run_now(self):
+        """Start the morning or midday run in the background. Body: {run?: "morning" | "midday"}."""
+        data = self._json_body(MAX_BODY_ASK)
+        if data is None:
+            return
+        try:
+            conn = store.connect(self.db_file)
+            try:
+                out = runnow.start(conn, self.cfg_file.parent, data.get("run", "morning"), *([self.run_popen] if self.run_popen else []))
+            finally:
+                conn.close()
+        except ValueError as e:
+            return self._send(400, {"error": str(e)})
+        except OSError as e:
+            return self._send(500, dict(problems.describe(e), error="The run could not be started."))
+        except sqlite3.Error:
+            return self._send(503, {"error": "database busy"})
+        self._send(200, out)
+
     def _add_role(self):
         """Add a role by hand and, unless build is false, start its kit. Body: {company, title, link?, posting?, build?}."""
         data = self._json_body(MAX_BODY_ASK)
@@ -755,7 +860,8 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             conn = store.connect(self.db_file)
             try:
-                out = api.add_manual_role(conn, data.get("company"), data.get("title"), data.get("link", ""), data.get("posting", ""))
+                out = api.add_manual_role(conn, data.get("company"), data.get("title"), data.get("link", ""), data.get("posting", ""),
+                                          found_via=data.get("found_via", ""))
                 rid = out.get("id") or out.get("duplicate_of")
                 if out.get("created"):
                     board.ensure(conn, dt.date.today())

@@ -102,7 +102,7 @@ def uninstall(rest, runner=None, platform=None):
     d = config.data_dir()
     problems = []
     for what, call in (("dashboard task", lambda: scheduler.service_remove(runner, platform, d)),
-                       ("scheduled runs", lambda: scheduler.remove(runner, platform))):
+                       ("scheduled runs", lambda: scheduler.remove(runner, platform, d))):
         try:
             call()
         except (scheduler.SchedulerError, OSError) as e:

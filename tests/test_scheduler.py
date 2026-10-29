@@ -11,6 +11,17 @@ from unittest import mock
 
 from cc import api, cli, config, scheduler, store, web
 
+
+_DEFAULT_NAMES = mock.patch.object(scheduler, "scope", return_value="")  # these tests cover the default-folder names; test_scope.py covers the rest
+
+
+def setUpModule():
+    _DEFAULT_NAMES.start()
+
+
+def tearDownModule():
+    _DEFAULT_NAMES.stop()
+
 _REAL_PORT_FREE = scheduler._port_free
 
 NS = "{http://schemas.microsoft.com/windows/2004/02/mit/task}"

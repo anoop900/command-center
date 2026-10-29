@@ -1,4 +1,5 @@
 """Setup wizard state and step 0 (welcome + demo). Later steps add to STEPS handling here."""
+import datetime as dt
 import json
 import re
 import shutil
@@ -52,7 +53,26 @@ def go(conn, step, complete=False):
     return state(conn)
 
 
-def load_demo(conn, root=None, data_dir=None):
+DEMO_DAY = dt.date(2026, 10, 12)        # the day the seed's dates were written for
+_ISO = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_NOT_DATES = {"kit", "resume_file"}      # kit folders keep their names
+
+
+def _shift(v, days, key=""):
+    """Move every date in a seed record by `days`, so the demo looks current whenever it is loaded."""
+    if isinstance(v, dict):
+        return {k: _shift(x, days, k) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_shift(x, days, key) for x in v]
+    if isinstance(v, str) and key not in _NOT_DATES and _ISO.match(v):
+        try:
+            return (dt.date.fromisoformat(v) + dt.timedelta(days=days)).isoformat()
+        except (ValueError, OverflowError):
+            return v
+    return v
+
+
+def load_demo(conn, root=None, data_dir=None, today=None):
     """Tag-and-import the fictional seed. Refuses when real data exists or the profile is complete; same input twice changes nothing."""
     if profile_complete(data_dir):
         raise ValueError("Your profile is complete, so the demo is switched off to keep it apart from your own data.")
@@ -62,10 +82,11 @@ def load_demo(conn, root=None, data_dir=None):
     if not root.is_dir():
         raise ValueError("The demo files are not installed.")
     docs = []
+    days = ((today or dt.date.today()) - DEMO_DAY).days
     for f in sorted(root.glob("*/*.json")):
         data = json.loads(f.read_text(encoding="utf-8"))
         if f.parent.name in USER_DATA and isinstance(data, dict):
-            docs.append((f.parent.name, f.stem, {**data, "demo": True}))
+            docs.append((f.parent.name, f.stem, {**_shift(data, days), "demo": True}))
     for col, doc_id, data in docs:
         cur = store.get(conn, col, doc_id)
         if cur is None or cur["data"] != data:
@@ -120,11 +141,11 @@ def change_mode(conn, cfg_file, name, runner=None, platform=None):
     out = choose_mode(conn, cfg_file, name)
     out.update(schedule="none", message="")
     if modes.schedules_ai(old) == modes.schedules_ai(name):
-        installed = scheduler.status(runner or scheduler.system_runner, platform)["installed"]
+        installed = scheduler.status(runner or scheduler.system_runner, platform, Path(cfg_file).parent)["installed"]
         out["schedule"] = "unchanged" if any(installed.values()) else "none"
         return out
     runner = runner or scheduler.system_runner
-    if not any(scheduler.status(runner, platform)["installed"].values()):
+    if not any(scheduler.status(runner, platform, Path(cfg_file).parent)["installed"].values()):
         return out
     cfg = config.load(cfg_file)
     try:

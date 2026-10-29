@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cc import scheduler
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "bootstrap" / "uninstall.ps1"
 WIN = os.name == "nt"
@@ -156,17 +158,21 @@ class UninstallerTests(unittest.TestCase):
 
     def test_leftover_tasks_are_removed_when_cc_is_missing(self):
         self.fake("python")
-        self.fake_schtasks(["CommandCenter-web", "CommandCenter-daily", "SomeoneElsesTask"])
+        sc = scheduler.scope(self.data)
+        # the other install's tasks (the default folder's, and one with another suffix) must survive
+        self.fake_schtasks([f"CommandCenter-web{sc}", f"CommandCenter-morning{sc}", "CommandCenter-web", "CommandCenter-web-deadbeef",
+                            "SomeoneElsesTask"])
         code, out = self.run_script("-Yes", "-KeepData")
         self.assertEqual(code, 0, out)
         deletes = [c for c in self.task_calls() if "/Delete" in c]
         self.assertEqual(len(deletes), 2, self.task_calls())
-        self.assertTrue(all("CommandCenter-" in c and "SomeoneElsesTask" not in c for c in deletes))
+        self.assertTrue(all(f"{sc} " in c + " " and "deadbeef" not in c and "SomeoneElsesTask" not in c for c in deletes), deletes)
+        self.assertFalse(any(c.split()[-2:-1] == ["CommandCenter-web"] for c in deletes), deletes)
 
     def test_leftover_tasks_are_removed_when_cc_uninstall_fails(self):
         self.fake("cc", 1)
         self.fake("python")
-        self.fake_schtasks(["CommandCenter-web"])
+        self.fake_schtasks(["CommandCenter-web" + scheduler.scope(self.data)])
         code, out = self.run_script("-Yes", "-KeepData")
         self.assertEqual(code, 1, out)
         self.assertTrue(any("/Delete" in c and "CommandCenter-web" in c for c in self.task_calls()), self.task_calls())
@@ -174,13 +180,13 @@ class UninstallerTests(unittest.TestCase):
     def test_tasks_are_left_to_cc_when_it_succeeds_and_dry_run_deletes_nothing(self):
         self.fake("cc")
         self.fake("python")
-        self.fake_schtasks(["CommandCenter-web"])
+        self.fake_schtasks(["CommandCenter-web" + scheduler.scope(self.data)])
         self.assertEqual(self.run_script("-Yes", "-KeepData")[0], 0)
         self.assertEqual(self.task_calls(), [])
         (self.bin / "cc.cmd").unlink()
         code, out = self.run_script("-DryRun", "-Yes", "-KeepData")
         self.assertEqual(code, 0, out)
-        self.assertIn("WOULD: remove the scheduled task CommandCenter-web", out)
+        self.assertIn("WOULD: remove the scheduled task CommandCenter-web" + scheduler.scope(self.data), out)
         self.assertFalse(any("/Delete" in c for c in self.task_calls()))
 
     def test_declining_the_first_question_changes_nothing(self):

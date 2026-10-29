@@ -67,13 +67,24 @@ function Remove-WingetTool($what, $id) {
     return $false
 }
 
-# The scheduled tasks Command Center creates are all named CommandCenter-*. Used when cc is missing or its own
-# uninstall failed (for example after the program was already removed), so no task is left pointing at nothing.
+# The scheduled tasks of THIS data folder: CommandCenter-<name> for the default folder, CommandCenter-<name>-<8 hex of the
+# folder path> for any other (same rule as cc/scheduler.py scope()). Another install on the same PC keeps its own tasks.
+# Used when cc is missing or its own uninstall failed, so no task is left pointing at nothing.
+function Get-TaskScope([string]$dir) {
+    $norm = { param($p) [IO.Path]::GetFullPath($p).TrimEnd('\').ToLowerInvariant() }
+    $d = & $norm $dir
+    if ($d -eq (& $norm (Join-Path $HOME '.commandcenter'))) { return '' }
+    $sha = [Security.Cryptography.SHA1]::Create()
+    $hex = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($d)) | ForEach-Object { $_.ToString('x2') })
+    return '-' + $hex.Substring(0, 8)
+}
 function Remove-LeftoverTasks {
     $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $names = @()
+    $scope = Get-TaskScope $(if ($env:CC_HOME) { $env:CC_HOME } else { Join-Path $HOME '.commandcenter' })
+    $mine = @('web', 'morning', 'midday') | ForEach-Object { "CommandCenter-$_$scope" }
     try {
-        $names = @(& schtasks /Query /FO CSV /NH 2>$null | ForEach-Object { ($_ -split '","')[0].Trim('"').TrimStart('\') } | Where-Object { $_ -like 'CommandCenter-*' })
+        $names = @(& schtasks /Query /FO CSV /NH 2>$null | ForEach-Object { ($_ -split '","')[0].Trim('"').TrimStart('\') } | Where-Object { $mine -contains $_ })
     } catch { } finally { $ErrorActionPreference = $old }
     foreach ($n in $names) {
         Step "remove the scheduled task $n" { schtasks /End /TN $n 2>&1 | Out-Null; schtasks /Delete /TN $n /F } | Out-Null

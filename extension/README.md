@@ -5,17 +5,16 @@ attaches the role's resume PDF from the kit folder, and shows the kit's `Applica
 **It never clicks Next or Submit.** The person reviews and submits.
 
 ## Setup (once)
-1. Generate `profile.json` from the private profile (section 9). It holds address and phone, is gitignored,
-   and stays on the PC: `python tools/make_profile.py <Candidate_Profile.md> profile.json`
-2. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → this `extension` folder.
-3. Extension **Options** → choose the Job Hunting folder (the one that holds `Daily`).
-4. Pin the extension. Alt+J opens the side panel.
+1. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → this `extension` folder.
+2. Keep the dashboard running (`cc start`). The extension finds it on port 8792 or 8791; if yours is elsewhere, set the address in Options.
+3. Pin the extension. Alt+J opens the side panel; **Check connection** says what is wrong, if anything.
+Role kits, the resume PDF and your answers come from the dashboard (`/extension/*`, read-only; the one write is Mark applied, sent only when you click it). The old folder method (Options, "Choose folder") and a bundled `profile.json` (`tools/make_profile.py`) remain only as a backup when the dashboard is not running.
 
 ## Use
 1. Open the application page and sign in yourself.
 2. Side panel: check the role kit (auto-picked by company name) and "How did you hear".
 3. **Fill this page.** Green = filled, orange = yours. Check, click Next yourself, press Fill again.
-4. After submitting: **Open dashboard to mark applied** (the confirmation email also updates the tracker).
+4. After submitting: **Mark applied** (on the thank-you page or in the side panel) updates the dashboard; the confirmation email also does it.
 
 ## Built-in rules
 - Never overwrites a filled field. Refuses to click Next, Submit, Save, Apply, Sign in.
@@ -28,7 +27,7 @@ attaches the role's resume PDF from the kit folder, and shows the kit's `Applica
 - Self-identification: "decline / prefer not to say".
 
 ## Tests
-`python test/run_tests.py profile.example.json` (mock Workday and Greenhouse pages), `python test/load_extension.py`.
+`python test/run_tests.py profile.example.json` (mock pages), `PW_CHANNEL=msedge python test/e2e_dashboard.py` (real extension against a real local dashboard; Chrome 137+ ignores `--load-extension`, so use Edge or Chromium).
 SuccessFactors uses the shared engine; not yet tested on a real form.
 
 ## v0.2 (Oct 7)

@@ -70,7 +70,7 @@ class AddRole(unittest.TestCase):
             self.post({"company": "Contoso", "title": "Director of Program Delivery", "posting": "x", "build": False})
         self.post({"company": "Fabrikam", "title": "Director of Program Delivery", "posting": "x", "build": False})
         c = self.conn()
-        sigs = [d["data"] for d in store.list_docs(c, "signals")]
+        sigs = [d["data"] for d in store.list_docs(c, "signals") if d["data"]["kind"] != "missed"]
         model = store.get(c, "learned", "model")["data"]
         c.close()
         self.assertEqual([(s["kind"], s["action"], s["source"]) for s in sigs], [("positive", "added_manually", "manual")] * 2)

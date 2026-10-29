@@ -75,7 +75,7 @@ class Sim(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)
         self.conn = store.connect(self.dir / "commandcenter.db")
-        wizard.load_demo(self.conn)
+        wizard.load_demo(self.conn, today=START)
 
     def tearDown(self):
         self.conn.close()
@@ -112,7 +112,7 @@ class Sim(unittest.TestCase):
                 tmp = tempfile.TemporaryDirectory()
                 conn = store.connect(Path(tmp.name) / "commandcenter.db")
                 try:
-                    wizard.load_demo(conn)
+                    wizard.load_demo(conn, today=START)
                     rng = random.Random(seed)
 
                     def behave(d, t):

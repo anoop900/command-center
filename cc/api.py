@@ -77,7 +77,7 @@ def role_upsert(conn, fields, if_version=None, by="claude"):
     return {"created": False, "id": rid, "version": v}
 
 
-def add_manual_role(conn, company, title, link="", posting="", by="dashboard"):
+def add_manual_role(conn, company, title, link="", posting="", by="dashboard", found_via=""):
     """A role the user adds by hand. Their own choice, so it skips the screening gates and waits for a kit build
     ('build on request', same as a kept gate-failed role). -> role_upsert's result."""
     company, title, link, posting = (v.strip() if isinstance(v, str) else v for v in (company, title, link, posting))
@@ -91,8 +91,12 @@ def add_manual_role(conn, company, title, link="", posting="", by="dashboard"):
         raise ValueError("add the job link, the job description, or both")
     dup = find_duplicate(conn, company, title, link) or (role_id(company, title) if store.get(conn, "roles", role_id(company, title)) else None)
     if dup:
-        return {"created": False, "duplicate_of": dup}
-    fields = {"company": company, "title": title, "key": job_key.key(company, title), "source": "manual",
+        have = store.get(conn, "roles", dup)
+        return {"created": False, "duplicate_of": dup, "was": (have["data"].get("status", "") if have else "")}
+    why = learned.why_missed(conn, title)
+    if not isinstance(found_via, str):
+        raise ValueError("found_via must be text")
+    fields = {"company": company, "title": title, "key": job_key.key(company, title), "source": "manual", "found_via": found_via.strip()[:30],
               "status": "build on request", "decision": "queued", "gate_review": "kept"}
     if link:
         fields["link"] = link
@@ -101,6 +105,7 @@ def add_manual_role(conn, company, title, link="", posting="", by="dashboard"):
     out = role_upsert(conn, fields, by=by)
     if out.get("created"):
         learned.record(conn, {"id": out["id"], "data": fields}, "added_manually")
+        learned.record_missed(conn, out["id"], fields, found_via, why)
         learned.train(conn)
     return out
 

@@ -7,16 +7,24 @@ let tab = null; // kept current so Fill can ask for site access before any await
 
 async function refreshTab() { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); }
 
+let base = null;
 async function loadRoles(ask = false) {
   const box = $("folderBox");
   try {
-    const root = await jafRoot(ask);
-    if (!root) { box.innerHTML = `No folder set. <a href="#" id="setup">Open setup</a>.`; $("setup").onclick = () => chrome.runtime.openOptionsPage(); return; }
-    if (root === "needs-permission") { box.innerHTML = `<button id="grant">Allow reading the Job Hunting folder</button>`; $("grant").onclick = () => loadRoles(true); return; }
-    roles = await jafRoles(root);
-    box.innerHTML = `<span class="ok">Folder OK.</span> ${roles.length} role kits from the last 21 days.`;
+    const got = await jafLoad(ask);
+    base = got.base; roles = got.roles;
+    if (!got.source) {
+      box.innerHTML = `<span class="warn">${esc(got.problem)}</span> ` + (got.needsPermission ? `<button id="grant">Allow reading the Job Hunting folder</button> ` : "") + `<a href="#" id="setup">Open setup</a>`;
+      if (got.needsPermission) $("grant").onclick = () => loadRoles(true);
+      $("setup").onclick = () => chrome.runtime.openOptionsPage();
+      await renderRoles();
+      return;
+    }
+    box.innerHTML = got.source === "dashboard"
+      ? `<span class="ok">Dashboard connected.</span> ${roles.length} open role${roles.length === 1 ? "" : "s"} with a kit.`
+      : `<span class="ok">Folder OK</span> (dashboard not running). ${roles.length} role kits from the last 21 days.`;
     await renderRoles();
-  } catch (e) { box.innerHTML = `<span class="warn">Folder problem: ${esc(e.message)}</span>`; }
+  } catch (e) { box.innerHTML = `<span class="warn">Problem: ${esc(e.message)}</span>`; }
 }
 
 async function renderRoles() {
@@ -32,8 +40,9 @@ async function readText(dir, name) { try { return await (await (await dir.getFil
 async function renderKit() {
   const r = roles[$("role").value];
   const kit = $("kit");
+  $("mark").hidden = !(r && r.key && !r.applied);
   if (!r) { kit.textContent = "No kit selected."; return; }
-  const md = await readText(r.handle, "Application_Kit.md");
+  const md = r.handle ? await readText(r.handle, "Application_Kit.md") : await fetch(`${base}/kits/${r.rel.split(/[\/]/).map(encodeURIComponent).join("/")}/Application_Kit.md`).then((x) => (x.ok ? x.text() : null), () => null);
   if (!md) { kit.textContent = "This folder has no Application_Kit.md."; return; }
   const parts = md.split(/^##\s+/m).slice(1).map((s) => { const i = s.indexOf("\n"); return { h: s.slice(0, i).trim(), body: s.slice(i + 1).trim() }; });
   kit.innerHTML = parts.map((p, i) => `<details ${/why|screen|question/i.test(p.h) ? "open" : ""}><summary><span>${esc(p.h)}</span><button data-i="${i}">Copy</button></summary><pre>${esc(p.body)}</pre></details>`).join("");
@@ -56,9 +65,14 @@ function fill() {
       resume = await jafResume(r);
       if (!resume) { out.innerHTML = `<p class="warn">No resume PDF in ${esc(r.folder)}.</p>`; return; }
     }
+    const gaps = (profile._missing || []).filter((m) => ["firstName", "lastName", "email", "phone", "address1", "city", "province", "postalCode", "country", "citizenship", "education", "school"].includes(m.key)).map((m) => m.label);
     const results = await jafFill(tab.id, { profile, resume, opts: { heardRe: $("heard").value, heard: $("heard").selectedOptions[0].text, company: jafCompany(r) } });
     jafLog(jafLogEntry(tab.url, r ? r.folder : "", results));
     show(results);
+    const un = results.flatMap((x) => x.unknown || []).slice(0, 15);
+    out.insertAdjacentHTML("beforeend", (r ? `<p class="note">Kit: ${esc(r.folder)} (${esc(jafWhy(r, tab.url, tab.title))}).</p>` : "") +
+      (gaps.length ? `<p class="warn">Your profile has no answer for: ${esc(gaps.join(", "))}. Add them on the dashboard Profile page.</p>` : "") +
+      (un.length ? `<p class="warn">Not recognised (answer yourself): ${esc(un.map((x) => x.slice(0, 50)).join("; "))}</p>` : ""));
   }).catch((e) => { out.innerHTML = `<p class="warn">Could not fill: ${esc(e.message || e)}</p>`; });
 }
 
@@ -75,6 +89,15 @@ function show(rs) {
 }
 
 $("fill").onclick = fill;
+$("check").onclick = async () => {
+  $("result").textContent = "Checking…";
+  $("result").innerHTML = (await jafHealth()).map((x) => `<p class="${x.ok ? "ok" : "warn"}">${x.ok ? "OK" : "Fix"}: ${esc(x.text)}</p>`).join("");
+};
+$("mark").onclick = async () => {
+  const r = roles[$("role").value];
+  try { await jafMarkApplied(r.key); r.applied = true; $("mark").hidden = true; $("result").innerHTML = `<p class="ok">Marked ${esc(jafCompany(r))} applied on the dashboard.</p>`; }
+  catch (e) { $("result").innerHTML = `<p class="warn">${esc(e.message)}</p>`; }
+};
 $("role").onchange = renderKit;
 $("heard").onchange = () => chrome.storage.local.set({ heard: { re: $("heard").value, text: $("heard").selectedOptions[0].text } });
 $("log").onclick = async () => {

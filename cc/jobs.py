@@ -198,7 +198,8 @@ def _publish_kit(conn, role_id, kit, home=None):
     files = [{"slot": slot, "name": name, "url": f"/kits/{quote(slug)}/{quote(name)}"} for slot, name in _kit_files(folder)]
     store.set_doc(conn, "kitindex", role_id, {"role": role_id, "key": key, "folder": slug, "files": files, "on_pc": True,
                                               "status": kit["status"], "built": kit["built"],
-                                              "tailor": kit["tailor"]["source"]}, by="jobs", force=True)
+                                              "tailor": kit["tailor"]["source"],
+                                              "unsupported": _unsupported(kit)}, by="jobs", force=True)
     _patch(conn, "roles", role_id, {"status": "ready", "kit": slug})
     board = store.get(conn, "board", "roles")
     if board:
@@ -208,5 +209,15 @@ def _publish_kit(conn, role_id, kit, home=None):
             store.set_doc(conn, "board", "roles", dict(board["data"], roles=rows), if_version=board["version"], by="jobs")
         except store.Conflict:
             pass        # a run rebuilt the board meanwhile; it reads the role record, which already says ready
-    n = len((kit.get("trace") or {}).get("unsupported") or [])
-    return f"{n} statement(s) could not be traced to your profile. Check the kit before you use it." if n else ""
+    n = len(_unsupported(kit))
+    return f"{n} statement(s) could not be traced to your profile. Open the role's Details to see which ones, and check them before you use the kit." if n else ""
+
+
+def _unsupported(kit):
+    """The statements the claim trace could not tie to the profile, as plain {claim, reason} rows for the page (bounded, text only)."""
+    rows = (kit.get("trace") or {}).get("unsupported")
+    out = []
+    for x in rows if isinstance(rows, list) else []:
+        if isinstance(x, dict) and isinstance(x.get("claim"), str) and x["claim"].strip():
+            out.append({"claim": x["claim"].strip()[:400], "reason": str(x.get("reason") or "")[:300]})
+    return out[:50]

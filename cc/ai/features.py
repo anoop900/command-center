@@ -174,3 +174,42 @@ def ask_question(question, context, mode, runner=ai.none_runner):
     if r.status != "ok" or r.source != "ai":
         return {"status": "unavailable", "reason": r.reason or "No AI available.", "errors": r.errors}
     return {"status": "ok", "answer": r.data["answer"]}
+
+
+MAX_REQUEST = 1500
+MAX_THEIRS = 6000
+
+
+def outreach_role(conn, role_id, channel, request, theirs, mode, runner=ai.none_runner, home=None, to="", name=""):
+    """One message draft for any role on the board (new, applied, or added by hand). Nothing is stored or sent.
+    request: what the user wants to say, in their words (optional); theirs: a message they received (optional)."""
+    home = home or config.data_dir()
+    role = store.get(conn, "roles", role_id)
+    if role is None:
+        raise KitError(f"no role {role_id!r}")
+    if channel not in ai.registry.OUTREACH_CHANNELS:
+        raise KitError("channel must be email, LinkedIn message or connection note")
+    for what, v, limit in (("request", request, MAX_REQUEST), ("their message", theirs, MAX_THEIRS), ("name", name, 60), ("who it is for", to, 60)):
+        if v is not None and (not isinstance(v, str) or len(v) > limit):
+            raise KitError(f"the {what} must be text of at most {limit} characters")
+    r = role["data"]
+    profile = _read(home / "Candidate_Profile.md", "candidate profile")
+    facts = [f"Role: {r.get('title', '')} at {r.get('company', '')}", f"Status: {r.get('status', '')}"]
+    if r.get("date_applied"):
+        facts.append(f"Applied on {r['date_applied']}")
+    if r.get("source") == "manual" and r.get("found_via"):
+        facts.append(f"Found via {r['found_via']}")
+    if to.strip():
+        facts.append(f"Writing to: {to.strip()}")
+    if name.strip():
+        facts.append(f"First name: {name.strip()}")
+    inputs = {"profile": profile, "role": "\n".join(facts), "channel": channel}
+    for key, val in (("posting", r.get("posting")), ("request", request), ("theirs", theirs)):
+        if isinstance(val, str) and val.strip():
+            inputs[key] = val
+    res = ai.run_task("outreach", inputs, mode, runner)
+    if res.status == "queued":
+        return {"status": "waiting", "reason": res.reason}
+    if res.status != "ok" or res.source != "ai":
+        return {"status": "unavailable", "reason": res.reason or "No AI available.", "errors": res.errors}
+    return {"status": "ok", "subject": res.data.get("subject", ""), "message": res.data["message"]}

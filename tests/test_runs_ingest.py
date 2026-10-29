@@ -113,7 +113,8 @@ class Demo(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             conn = store.connect(os.path.join(tmp, "d.db"))
             importer.import_folder(conn, HERE.parent / "demo" / "seed")
-            out = morning.run(conn, "morning", dt.date.today())
+            # the seed's dates are fixed, so run it on a day inside its window instead of the real today
+            out = morning.run(conn, "morning", dt.date(2026, 10, 12))
             doc = store.get(conn, "board", "today")["data"]
             self.assertEqual(out["roles"], 5)
             self.assertTrue(doc["todos"])
@@ -121,6 +122,23 @@ class Demo(unittest.TestCase):
             for col in ("contacts", "tasks", "offers"):  # the People, Tasks and Offers tabs need demo rows too
                 self.assertTrue(store.list_docs(conn, col), col)
             conn.close()
+
+
+class DemoDates(unittest.TestCase):
+    def test_loaded_demo_is_current_whenever_it_is_loaded(self):
+        from cc import wizard
+        for today in (dt.date(2026, 10, 12), dt.date(2027, 3, 1)):
+            with tempfile.TemporaryDirectory() as tmp:
+                conn = store.connect(os.path.join(tmp, "d.db"))
+                wizard.load_demo(conn, data_dir=tmp, today=today)
+                morning.run(conn, "morning", today)
+                self.assertEqual(len(store.get(conn, "board", "roles")["data"]["roles"]), 5, today)
+                self.assertTrue(store.get(conn, "board", "today")["data"]["todos"], today)
+                kits = {r["data"].get("kit") for r in store.list_docs(conn, "roles")} - {None}
+                self.assertEqual(kits, {"2026-10-08/Northwind_DirProgramDelivery"})   # folder names are not dates
+                again = wizard.load_demo(conn, data_dir=tmp, today=today)           # same day twice changes nothing
+                self.assertEqual(again["loaded"], len(list((HERE.parent / "demo" / "seed").glob("*/*.json"))) - 0)
+                conn.close()
 
 
 class Sources(unittest.TestCase):

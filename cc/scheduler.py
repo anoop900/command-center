@@ -1,6 +1,7 @@
 """Wizard step 5: install, remove and check the two OS tasks that run the morning and midday runs.
 Per-user, no admin rights, no stored password. Install replaces the two tasks by name and touches nothing else.
 All OS calls go through `runner(argv, input_text) -> (returncode, output)` so tests never touch a real scheduler."""
+import hashlib
 import os
 import plistlib
 import re
@@ -25,6 +26,27 @@ BOOT = "import os,sys;os.environ['CC_HOME']=sys.argv[1];from cc.cli import main;
 
 class SchedulerError(ValueError):
     pass
+
+
+def scope(data_dir=None):
+    """'' for the default data folder, else '-<8 hex>' of its path. Task, plist and crontab names carry it, so two
+    installs on one PC (say a private and a public one, each with its own CC_HOME) never replace each other's tasks."""
+    norm = lambda p: os.path.normcase(os.path.abspath(str(p)))
+    d = norm(data_dir or config.data_dir())
+    return "" if d == norm(Path.home() / ".commandcenter") else "-" + hashlib.sha1(d.encode("utf-8")).hexdigest()[:8]
+
+
+def _task(name, data_dir):
+    return WIN_PREFIX + name + scope(data_dir)
+
+
+def _plist(name, data_dir):
+    return _mac_dir() / f"{MAC_PREFIX}{name}{scope(data_dir)}.plist"
+
+
+def _marks(begin, end, data_dir):
+    sc = scope(data_dir)
+    return (begin + sc, end + sc)
 
 
 def check_times(times):
@@ -80,20 +102,20 @@ def windows_xml(argv, hhmm):
 """
 
 
-def _win_install(jobs, runner):
+def _win_install(jobs, runner, data_dir):
     for name, hhmm, argv in jobs:
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / "task.xml"
             f.write_text(windows_xml(argv, hhmm), encoding="utf-16")
-            rc, out = runner(["schtasks", "/Create", "/TN", WIN_PREFIX + name, "/XML", str(f), "/F"], None)
+            rc, out = runner(["schtasks", "/Create", "/TN", _task(name, data_dir), "/XML", str(f), "/F"], None)
         if rc != 0:
             raise SchedulerError(f"Task Scheduler refused the {name} task: {out[:200]}")
 
 
 # ---- macOS -----------------------------------------------------------------------------------
-def launchd_plist(name, hhmm, argv):
+def launchd_plist(name, hhmm, argv, sc=""):
     h, m = hhmm.split(":")
-    return plistlib.dumps({"Label": MAC_PREFIX + name, "ProgramArguments": argv,
+    return plistlib.dumps({"Label": MAC_PREFIX + name + sc, "ProgramArguments": argv,
                            "StartCalendarInterval": {"Hour": int(h), "Minute": int(m)}, "RunAtLoad": False})
 
 
@@ -101,12 +123,12 @@ def _mac_dir():
     return Path.home() / "Library" / "LaunchAgents"
 
 
-def _mac_install(jobs, runner):
+def _mac_install(jobs, runner, data_dir):
     _mac_dir().mkdir(parents=True, exist_ok=True)
     for name, hhmm, argv in jobs:
-        p = _mac_dir() / f"{MAC_PREFIX}{name}.plist"
+        p = _plist(name, data_dir)
         runner(["launchctl", "bootout", f"gui/{os.getuid()}", str(p)], None)  # fine if it was not loaded
-        p.write_bytes(launchd_plist(name, hhmm, argv))
+        p.write_bytes(launchd_plist(name, hhmm, argv, scope(data_dir)))
         rc, out = runner(["launchctl", "bootstrap", f"gui/{os.getuid()}", str(p)], None)
         if rc != 0:
             raise SchedulerError(f"launchd refused the {name} task: {out[:200]}")
@@ -114,21 +136,23 @@ def _mac_install(jobs, runner):
 
 # ---- Linux (cron) ----------------------------------------------------------------------------
 def cron_lines(jobs, data_dir, mode):
-    out = [CRON_BEGIN]
+    begin, end = _marks(CRON_BEGIN, CRON_END, data_dir)
+    out = [begin]
     for name, hhmm, argv in jobs:
         h, m = hhmm.split(":")
         out.append(f"{int(m)} {int(h)} * * * {' '.join(quote(a) for a in argv)}")
         # cron has no catch-up: also try once at boot; --catch-up skips when today's run is done or not yet due
         out.append("@reboot " + " ".join(quote(a) for a in command(name, mode, data_dir, catch_up=True)))
-    return out + [CRON_END]
+    return out + [end]
 
 
-def _strip_cron(text):
+def _strip_cron(text, data_dir=None):
+    begin, end = _marks(CRON_BEGIN, CRON_END, data_dir)
     keep, skip = [], False
     for line in text.splitlines():
-        if line.strip() == CRON_BEGIN:
+        if line.strip() == begin:
             skip = True
-        elif line.strip() == CRON_END:
+        elif line.strip() == end:
             skip = False
         elif not skip:
             keep.append(line)
@@ -159,44 +183,44 @@ def install(cfg, times, runner=system_runner, platform=None, data_dir=None):
     kind = _kind(platform or sys.platform)
     jobs = [(r, times[r], command(r, mode, data_dir)) for r in RUNS]
     if kind == "windows":
-        _win_install(jobs, runner)
+        _win_install(jobs, runner, data_dir)
     elif kind == "mac":
-        _mac_install(jobs, runner)
+        _mac_install(jobs, runner, data_dir)
     else:
-        kept = _strip_cron(_cron_read(runner))
+        kept = _strip_cron(_cron_read(runner), data_dir)
         _cron_write(runner, kept + cron_lines(jobs, data_dir, mode))
     config.set_values(Path(data_dir) / "config.toml", "run", times)
-    return status(runner, platform)
+    return status(runner, platform, data_dir)
 
 
-def remove(runner=system_runner, platform=None):
+def remove(runner=system_runner, platform=None, data_dir=None):
     kind = _kind(platform or sys.platform)
     if kind == "windows":
         for r in RUNS:
-            if runner(["schtasks", "/Query", "/TN", WIN_PREFIX + r], None)[0] == 0:
-                rc, out = runner(["schtasks", "/Delete", "/TN", WIN_PREFIX + r, "/F"], None)
+            if runner(["schtasks", "/Query", "/TN", _task(r, data_dir)], None)[0] == 0:
+                rc, out = runner(["schtasks", "/Delete", "/TN", _task(r, data_dir), "/F"], None)
                 if rc != 0:
                     raise SchedulerError(f"could not remove the {r} task: {out[:200]}")
     elif kind == "mac":
         for r in RUNS:
-            p = _mac_dir() / f"{MAC_PREFIX}{r}.plist"
+            p = _plist(r, data_dir)
             runner(["launchctl", "bootout", f"gui/{os.getuid()}", str(p)], None)
             p.unlink(missing_ok=True)
     else:
-        kept = _strip_cron(_cron_read(runner))
+        kept = _strip_cron(_cron_read(runner), data_dir)
         _cron_write(runner, kept)
-    return status(runner, platform)
+    return status(runner, platform, data_dir)
 
 
-def status(runner=system_runner, platform=None):
+def status(runner=system_runner, platform=None, data_dir=None):
     kind = _kind(platform or sys.platform)
     if kind == "windows":
-        found = {r: runner(["schtasks", "/Query", "/TN", WIN_PREFIX + r], None)[0] == 0 for r in RUNS}
+        found = {r: runner(["schtasks", "/Query", "/TN", _task(r, data_dir)], None)[0] == 0 for r in RUNS}
     elif kind == "mac":
-        found = {r: (_mac_dir() / f"{MAC_PREFIX}{r}.plist").exists() for r in RUNS}
+        found = {r: _plist(r, data_dir).exists() for r in RUNS}
     else:
         text = _cron_read(runner)
-        found = {r: CRON_BEGIN in text and f" run {r}" in text for r in RUNS}
+        found = {r: _marks(CRON_BEGIN, CRON_END, data_dir)[0] in text.splitlines() and f" run {r}" in text for r in RUNS}
     return {"os": kind, "installed": found, "all_installed": all(found.values())}
 
 
@@ -240,8 +264,8 @@ def service_windows_xml(argv, user):
 """
 
 
-def service_plist(argv):
-    return plistlib.dumps({"Label": MAC_PREFIX + SERVICE, "ProgramArguments": argv, "RunAtLoad": True, "KeepAlive": True})
+def service_plist(argv, sc=""):
+    return plistlib.dumps({"Label": MAC_PREFIX + SERVICE + sc, "ProgramArguments": argv, "RunAtLoad": True, "KeepAlive": True})
 
 
 def _win_user():
@@ -293,38 +317,40 @@ def service_install(port=SERVICE_PORT, runner=system_runner, platform=None, data
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / "task.xml"
             f.write_text(service_windows_xml(argv, _win_user()), encoding="utf-16")
-            rc, out = runner(["schtasks", "/Create", "/TN", WIN_PREFIX + SERVICE, "/XML", str(f), "/F"], None)
+            rc, out = runner(["schtasks", "/Create", "/TN", _task(SERVICE, data_dir), "/XML", str(f), "/F"], None)
         if rc != 0:
             raise SchedulerError(f"Task Scheduler refused the web task: {out[:200]}")
         # Task Scheduler refuses /Run while an instance is alive, so a reinstall would keep serving the old code.
-        runner(["schtasks", "/End", "/TN", WIN_PREFIX + SERVICE], None)
+        runner(["schtasks", "/End", "/TN", _task(SERVICE, data_dir)], None)
         for _ in range(20):  # up to 5 s for the old server to let go of its port
             if _port_free(port):
                 break
             time.sleep(0.25)
-        runner(["schtasks", "/Run", "/TN", WIN_PREFIX + SERVICE], None)  # start now; a taken port shows in the log
+        runner(["schtasks", "/Run", "/TN", _task(SERVICE, data_dir)], None)  # start now; a taken port shows in the log
     elif kind == "mac":
         _mac_dir().mkdir(parents=True, exist_ok=True)
-        p = _mac_dir() / f"{MAC_PREFIX}{SERVICE}.plist"
+        p = _plist(SERVICE, data_dir)
         runner(["launchctl", "bootout", f"gui/{os.getuid()}", str(p)], None)
-        p.write_bytes(service_plist(argv))
+        p.write_bytes(service_plist(argv, scope(data_dir)))
         rc, out = runner(["launchctl", "bootstrap", f"gui/{os.getuid()}", str(p)], None)
         if rc != 0:
             raise SchedulerError(f"launchd refused the web task: {out[:200]}")
     else:
-        kept = _strip_svc_cron(_cron_read(runner))
-        _cron_write(runner, kept + [SVC_BEGIN, "@reboot " + " ".join(quote(a) for a in argv), SVC_END])
+        kept = _strip_svc_cron(_cron_read(runner), data_dir)
+        begin, end = _marks(SVC_BEGIN, SVC_END, data_dir)
+        _cron_write(runner, kept + [begin, "@reboot " + " ".join(quote(a) for a in argv), end])
         runner(["sh", "-c", " ".join(quote(a) for a in argv) + " >/dev/null 2>&1 &"], None)
     (data_dir / SERVICE_FILE).write_text(json.dumps({"port": port}), encoding="utf-8")
     return service_status(runner, platform, data_dir)
 
 
-def _strip_svc_cron(text):
+def _strip_svc_cron(text, data_dir=None):
+    begin, end = _marks(SVC_BEGIN, SVC_END, data_dir)
     keep, skip = [], False
     for line in text.splitlines():
-        if line.strip() == SVC_BEGIN:
+        if line.strip() == begin:
             skip = True
-        elif line.strip() == SVC_END:
+        elif line.strip() == end:
             skip = False
         elif not skip:
             keep.append(line)
@@ -334,18 +360,18 @@ def _strip_svc_cron(text):
 def service_remove(runner=system_runner, platform=None, data_dir=None):
     kind = _kind(platform or sys.platform)
     if kind == "windows":
-        name = WIN_PREFIX + SERVICE
+        name = _task(SERVICE, data_dir)
         if runner(["schtasks", "/Query", "/TN", name], None)[0] == 0:
             runner(["schtasks", "/End", "/TN", name], None)  # stop the running server too
             rc, out = runner(["schtasks", "/Delete", "/TN", name, "/F"], None)
             if rc != 0:
                 raise SchedulerError(f"could not remove the web task: {out[:200]}")
     elif kind == "mac":
-        p = _mac_dir() / f"{MAC_PREFIX}{SERVICE}.plist"
+        p = _plist(SERVICE, data_dir)
         runner(["launchctl", "bootout", f"gui/{os.getuid()}", str(p)], None)
         p.unlink(missing_ok=True)
     else:
-        _cron_write(runner, _strip_svc_cron(_cron_read(runner)))
+        _cron_write(runner, _strip_svc_cron(_cron_read(runner), data_dir))
     return service_status(runner, platform, data_dir)
 
 
@@ -353,11 +379,11 @@ def service_status(runner=system_runner, platform=None, data_dir=None):
     kind = _kind(platform or sys.platform)
     data_dir = Path(data_dir or config.data_dir())
     if kind == "windows":
-        installed = runner(["schtasks", "/Query", "/TN", WIN_PREFIX + SERVICE], None)[0] == 0
+        installed = runner(["schtasks", "/Query", "/TN", _task(SERVICE, data_dir)], None)[0] == 0
     elif kind == "mac":
-        installed = (_mac_dir() / f"{MAC_PREFIX}{SERVICE}.plist").exists()
+        installed = _plist(SERVICE, data_dir).exists()
     else:
-        installed = SVC_BEGIN in _cron_read(runner)
+        installed = _marks(SVC_BEGIN, SVC_END, data_dir)[0] in _cron_read(runner).splitlines()
     port = _saved_port(data_dir)
     return {"os": kind, "installed": installed, "port": port, "url": f"http://127.0.0.1:{port}/",
             "running": _reachable(port)}
