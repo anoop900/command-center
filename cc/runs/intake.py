@@ -189,6 +189,7 @@ def intake(conn, config, profile_text, postings, today=None):
             if verdict == "hold":
                 # Applied recently and not a repost: stay off the board, but remember it was seen again.
                 h = next(h for h in hits if h["data"] is last)
+                h = store.get(conn, "roles", h["id"]) or h      # an earlier posting in this batch may have bumped it
                 data = dict(h["data"], seen_again=int(h["data"].get("seen_again") or 0) + 1, last_seen=today)
                 store.set_doc(conn, "roles", h["id"], data, if_version=h["version"], by="intake")
                 out["held"].append(data.get("key") or h["id"])

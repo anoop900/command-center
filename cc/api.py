@@ -204,12 +204,14 @@ def actions_apply(conn, actions, by="phone"):
 
 # ---- run heartbeat and exports -----------------------------------------------------------------
 def run_heartbeat(conn, run, phase, info=None, on=None):
-    """phase 'start' or 'finish'. One doc per run per day: runs/<date>-<run>."""
-    if phase not in ("start", "finish"):
-        raise ValueError("phase must be 'start' or 'finish'")
+    """phase 'start', 'finish' or 'fail'. One doc per run per day: runs/<date>-<run>."""
+    if phase not in ("start", "finish", "fail"):
+        raise ValueError("phase must be 'start', 'finish' or 'fail'")
     on = on or dt.date.today().isoformat()
     doc = f"{on}-{run}"
-    fields = {"started" if phase == "start" else "finished": store.now(), "run": run, "date": on}
+    fields = {{"start": "started", "finish": "finished", "fail": "failed"}[phase]: store.now(), "run": run, "date": on}
+    if phase == "start":
+        fields["failed"] = ""                                # a retry the same day clears the earlier failure
     if info:
         fields["info"] = info
     cur = store.get(conn, "runs", doc)

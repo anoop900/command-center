@@ -506,7 +506,14 @@ def _db_cmd(conn, cmd, rest):
                 ai_arg = (cfg.mode.name, runners.make_runner(cfg, conn))
             except ai.RunnerError as e:
                 print(f"note: AI steps skipped: {e}", file=sys.stderr)
-        result = morning.run(conn, rest[0], tracker_path=tracker.default_path(), ai=ai_arg, coach_dir=config.data_dir(), files=(api.db_path(), config.config_path()), **sources.gather(config.load(), rest[0], contact_emails=[d["data"].get("email", "") for d in store.list_docs(conn, "contacts")]))
+        try:
+            result = morning.run(conn, rest[0], tracker_path=tracker.default_path(), ai=ai_arg, coach_dir=config.data_dir(), files=(api.db_path(), config.config_path()), **sources.gather(config.load(), rest[0], contact_emails=[d["data"].get("email", "") for d in store.list_docs(conn, "contacts")]))
+        except BaseException:                                # leave a marker so Run now does not wait on a dead run
+            try:
+                api.run_heartbeat(conn, rest[0], "fail")
+            except Exception:
+                pass
+            raise
         try:
             from . import backup
             for note in backup.auto(config.data_dir(), cfg.backup.keep, cfg.backup.extra_dir, keep_manual=cfg.backup.keep_manual):

@@ -49,7 +49,7 @@ def status(conn, data_dir):
                        fix="Press Run now to try again. If it stops again, open the log: logs/run-now.log in your data folder.")
     for run in ("morning", "midday"):
         hb = _heartbeat(conn, run)
-        if hb.get("started") and not hb.get("finished") and _age_min(hb["started"]) < STALE_MIN and not entry:
+        if hb.get("started") and not hb.get("finished") and not hb.get("failed") and _age_min(hb["started"]) < STALE_MIN and not entry:
             return {"state": "running", "run": run, "started": hb["started"]}     # started by the scheduler or by an earlier server
     hb = _heartbeat(conn, "morning")
     out["finished"] = hb.get("finished", "")

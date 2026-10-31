@@ -100,6 +100,15 @@ class RunNow(unittest.TestCase):
         conn.close()
         self.assertNotEqual(self.call("GET")[1]["state"], "running")
 
+    def test_a_run_that_crashed_frees_run_now_and_a_retry_clears_the_mark(self):
+        conn = store.connect(self.dir / "commandcenter.db")
+        api.run_heartbeat(conn, "morning", "start")
+        api.run_heartbeat(conn, "morning", "fail")
+        self.assertNotEqual(self.call("GET")[1]["state"], "running")
+        api.run_heartbeat(conn, "morning", "start")
+        conn.close()
+        self.assertEqual(self.call("GET")[1]["state"], "running")
+
 
 if __name__ == "__main__":
     unittest.main()

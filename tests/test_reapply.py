@@ -44,6 +44,12 @@ class Reapply(unittest.TestCase):
         self.run_intake(url=URL_OLD)
         self.assertEqual(self.roles()[0]["seen_again"], 2)
 
+    def test_same_applied_role_twice_in_one_batch_does_not_crash(self):
+        self.applied(10)
+        out = intake.intake(self.conn, CFG, PROFILE, [posting(url=URL_OLD), posting(url=URL_OLD)], TODAY)
+        self.assertEqual(len(out["held"]), 2)
+        self.assertEqual(self.roles()[0]["seen_again"], 2)
+
     def test_new_posting_id_inside_the_minimum_gap_is_still_held(self):
         self.applied(10)
         self.assertEqual(len(self.run_intake(url=URL_NEW)["held"]), 1)

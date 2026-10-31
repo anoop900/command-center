@@ -2,6 +2,7 @@
 
 ## 1.1.0
 
+- Fixed the morning run stopping with "unexpected Conflict" when a role you applied to appeared twice in one fetch; Run now also no longer waits on a run that crashed.
 - The demo shifts its dates to today when you load it, so it always looks current (it used to show an empty Today once its fixed dates aged out).
 - Roles you applied to stay off the board until a cooldown passes (90 days, `reapply_after_days`) or the posting is reposted; a repost comes back flagged.
 - More reasons for Not applying (18 now). Pay, place, level, contract, company and agency reasons turn into suggestions on the Learning page once they repeat.
