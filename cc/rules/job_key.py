@@ -7,6 +7,7 @@ keep their ids. Nothing is re-keyed.
 
 match_keys(company, title, url) adds looser handles used ONLY to detect duplicates:
   - the same key with legal suffixes stripped ("Acme Corp." == "Acme")
+  - the same key with a trailing " · place" stripped ("Acme · Toronto, ON" == "Acme")
   - the posting's numeric id from its URL, prefixed by host family, so the same
     LinkedIn or Workday posting seen through two channels collapses to one role.
 
@@ -67,8 +68,17 @@ def url_id(url):
     return f"{fam}:{m.group(1)}"
 
 
+_PLACE = re.compile(r"\s+[·•]\s+.*$", re.S)
+
+
+def company_base(company):
+    """'Acme · Toronto, ON (Hybrid)' -> 'Acme'. Older alert parsing kept the place in the company field."""
+    return _PLACE.sub("", str(company))
+
+
 def match_keys(company, title, url=""):
-    ks = {key(company, title), company_norm(company) + "|" + _title(title)}
+    ks = {key(company, title), company_norm(company) + "|" + _title(title),
+          company_norm(company_base(company)) + "|" + _title(title)}
     u = url_id(url)
     if u:
         ks.add("url:" + u)

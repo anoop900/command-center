@@ -1,0 +1,12 @@
+From: LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>
+To: jordan@example.com
+Subject: New jobs
+Message-ID: <linkedin_card_alert.eml@fixture>
+Date: Thu, 12 Nov 2026 07:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><table>
+<tr><td><a href="https://www.linkedin.com/comm/jobs/view/4000000001/?trackingId=x">Head of Platform</a><br><span>Example Corp &middot; Toronto, ON (Hybrid)</span><br><span>1 connection</span></td></tr>
+<tr><td><a href="https://www.linkedin.com/comm/jobs/view/4000000002/?trackingId=y">View</a><br><span>Jobs where you are the top candidate</span></td></tr>
+</table></body></html>

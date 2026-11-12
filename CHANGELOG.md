@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+- Glassdoor job alerts are read again (their links moved to country sites such as glassdoor.ca, so no jobs came through).
+- Indeed alert emails now give every job they list, not only the first one, and job links wrapped in Indeed's click tracking are opened.
+- ZipRecruiter alerts are read again after a change to their links.
+- Buttons in alert emails such as "View job" or "Apply now" are no longer added as job titles.
+- LinkedIn alerts no longer put the city in the company name. Roles you applied to stay off the board when the same job arrives from another alert or another city, including roles saved before this fix.
+
 ## 1.1.0
 
 - Fixed the morning run stopping with "unexpected Conflict" when a role you applied to appeared twice in one fetch; Run now also no longer waits on a run that crashed.

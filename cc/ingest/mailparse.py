@@ -33,7 +33,8 @@ def _parts(msg, ctype):
 
 
 class _Tokens(HTMLParser):
-    """Flattens HTML into ("t", text) and ("a", href, anchor text); script/style content is dropped."""
+    """Flattens HTML into ("t", text) and ("a", href, anchor text, text pieces); script/style content is dropped.
+    The pieces are the anchor's separate text nodes, for cards that put company, title and place in one link."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -49,7 +50,8 @@ class _Tokens(HTMLParser):
         if tag in ("script", "style"):
             self._skip = max(0, self._skip - 1)
         elif tag == "a" and self._href is not None:
-            self.tokens.append(("a", self._href, " ".join("".join(self._buf).split())))
+            pieces = tuple(p for p in (" ".join(b.split()) for b in self._buf) if p)[:20]
+            self.tokens.append(("a", self._href, " ".join("".join(self._buf).split()), pieces))
             self._href = None
 
     def handle_data(self, data):
@@ -77,7 +79,8 @@ def text_of(msg):
     for t in _parts(msg, "text/plain"):
         return t[:MAX_TEXT]
     toks = html_tokens(msg)
-    return " \n".join(t[-1] for t in toks if t[0] == "t" or t[-1])[:MAX_TEXT]
+    texts = (t[1] if t[0] == "t" else t[2] for t in toks)
+    return " \n".join(x for x in texts if x)[:MAX_TEXT]
 
 
 def clean(s, limit=200):

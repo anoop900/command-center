@@ -49,6 +49,41 @@ class AlertTests(unittest.TestCase):
             self.assertIsInstance(alerts.parse_alert(msg), list)
             status.parse_status(msg)
 
+    def fields(self, name):
+        return [(j["title"], j["company"], j["location"]) for j in alerts.parse_alert(load(name))]
+
+    def test_glassdoor_country_site_card_in_one_link(self):
+        jobs = alerts.parse_alert(load("glassdoor_ca_alert.eml"))
+        self.assertEqual(self.fields("glassdoor_ca_alert.eml"),
+                         [("Senior Delivery Manager", "Example Corp", "Toronto"), ("Program Lead", "Sample Industries", "")])
+        self.assertEqual(jobs[0]["url"], "https://www.glassdoor.ca/partner/jobListing.htm?jobListingId=1010000000001")
+
+    def test_indeed_digest_keeps_each_job_and_opens_redirects(self):
+        jobs = alerts.parse_alert(load("indeed_digest_alert.eml"))
+        self.assertEqual([j["title"] for j in jobs], ["Service Delivery Lead", "Operations Manager", "Program Director"])
+        self.assertEqual(jobs[0]["url"], "https://ca.indeed.com/pagead/clk?ad=AAA111&mo=r")   # tracking dropped
+        self.assertEqual(jobs[0]["company"], "Example Corp")
+        self.assertEqual(len({j["url"] for j in jobs}), 3)        # no longer collapsed into one link
+
+    def test_indeed_redirect_hostile_or_broken_is_dropped(self):
+        from urllib.parse import urlparse
+        for tok in ("", "!!!", "H4sI" + "A" * 20, "x" * 9000):
+            self.assertIsNone(alerts._indeed_redirect(urlparse("https://cts.indeed.com/v9/" + tok)))
+        self.assertNotIn("Wire money now", [j["title"] for j in alerts.parse_alert(load("indeed_digest_alert.eml"))])
+
+    def test_ziprecruiter_new_links_and_buttons(self):
+        self.assertEqual(self.fields("ziprecruiter_km_alert.eml"),
+                         [("Cloud Program Manager", "Example Corp", "Austin, TX • Hybrid"),
+                          ("Delivery Director", "Sample Industries", "Remote")])
+
+    def test_linkedin_place_kept_out_of_company_and_button_links_skipped(self):
+        self.assertEqual(self.fields("linkedin_card_alert.eml"), [("Head of Platform", "Example Corp", "Toronto, ON (Hybrid)")])
+
+    def test_anchor_pieces_and_text_of(self):
+        a = [t for t in mailparse.html_tokens(load("glassdoor_ca_alert.eml")) if t[0] == "a"][0]
+        self.assertEqual(a[3][:3], ("Example Corp", "3.7 ★", "Senior Delivery Manager"))
+        self.assertIn("Senior Delivery Manager", mailparse.text_of(load("glassdoor_ca_alert.eml")))
+
 
 class StatusTests(unittest.TestCase):
     def test_kinds(self):

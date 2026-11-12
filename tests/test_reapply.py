@@ -50,6 +50,17 @@ class Reapply(unittest.TestCase):
         self.assertEqual(len(out["held"]), 2)
         self.assertEqual(self.roles()[0]["seen_again"], 2)
 
+    def test_applied_role_saved_with_place_in_company_still_matches(self):
+        # Older alert parsing stored 'Delta · Toronto, ON'; the same job from another feed must not come back.
+        k = job_key.key("Delta · Toronto, ON (Hybrid)", "Director of Platform")
+        d = (TODAY - dt.timedelta(days=5)).isoformat()
+        store.set_doc(self.conn, "roles", job_key.doc_id(k), dict(key=k, company="Delta · Toronto, ON (Hybrid)",
+                      title="Director of Platform", link="", status="applied", date_applied=d, date_found=d))
+        out = self.run_intake(url="https://boards.greenhouse.io/delta/jobs/7000999999")
+        self.assertEqual((out["added"], len(out["held"])), ([], 1))
+        self.assertTrue(job_key.match_keys("Acme · Waterloo, ON", "Lead") & job_key.match_keys("Acme Inc.", "Lead"))
+        self.assertFalse(job_key.match_keys("Acme · Waterloo", "Lead") & job_key.match_keys("Acmex", "Lead"))
+
     def test_new_posting_id_inside_the_minimum_gap_is_still_held(self):
         self.applied(10)
         self.assertEqual(len(self.run_intake(url=URL_NEW)["held"]), 1)

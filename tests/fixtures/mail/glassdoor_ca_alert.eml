@@ -1,0 +1,14 @@
+From: Glassdoor Jobs <noreply@glassdoor.com>
+To: jordan@example.com
+Subject: New jobs for you
+Message-ID: <glassdoor_ca_alert.eml@fixture>
+Date: Thu, 12 Nov 2026 07:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body>
+<a href="https://www.glassdoor.ca/partner/jobListing.htm?pos=101&guid=abc&jobListingId=1010000000001&jrtk=x"><table><tr><td>Example Corp</td><td>3.7 &#9733;</td></tr><tr><td>Senior Delivery Manager</td></tr><tr><td>Toronto</td><td>$120K - $140K (Employer Est.)</td><td>4d</td></tr></table></a>
+<a href="https://www.glassdoor.ca/partner/jobListing.htm?pos=102&guid=def&jobListingId=1010000000002"><table><tr><td>Sample Industries</td><td>&#9733;</td></tr><tr><td>Program Lead</td></tr><tr><td>7d</td></tr></table></a>
+<a href="https://www.glassdoor.ca/Benefits/example.htm">Benefits at Example Corp</a>
+<a href="https://www.glassdoor.example.com/partner/jobListing.htm?jobListingId=1010000000003">Phishing Lead</a>
+</body></html>
