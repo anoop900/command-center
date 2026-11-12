@@ -227,11 +227,11 @@ def _kits(o, conn, rows, applied):
                [r.get("company", "?") for r in no_kit])
     o.point("applications with a cover letter", len(applied) - len(no_cover))
     scored = [(a, r) for r in applied if isinstance(a := r.get("ats"), (int, float)) and not isinstance(a, bool)]
-    low = [r for a, r in scored if a < 0.8]
+    low = [r for a, r in scored if (a * 100 if a <= 1 else a) < 80]     # imported rows hold 0-1, kits now store 0-100
     o.point("applications with an ATS score", len(scored))
     if low:
         o.area("low-ats", "Application quality", "medium", "Resumes scoring low on the ATS check",
-               [f"{len(low)} of {len(scored)} scored below 0.80."], "Add the missing keywords the ATS check lists, where they are true.", len(low),
+               [f"{len(low)} of {len(scored)} scored below 80."], "Add the missing keywords the ATS check lists, where they are true.", len(low),
                [r.get("company", "?") for r in low])
     revs = store.list_docs(conn, "kitreviews")
     issues = sum(_int(x["data"].get("grounding_issues")) for x in revs)

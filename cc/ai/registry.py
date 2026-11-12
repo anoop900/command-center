@@ -342,7 +342,7 @@ TASKS = {t.name: t for t in (
                          "answers": {"type": "array", "maxItems": 20, "items": {
                              "type": "object", "required": ["question", "answer"],
                              "properties": {"question": _STR, "answer": _STR}}}}},
-         lambda inputs: _pair_input(inputs) + _opt(inputs, "rules", "RULES"),
+         lambda inputs: _pair_input(inputs) + _opt(inputs, "rules", "RULES") + _opt(inputs, "ats", "ATS"),
          fallback=lambda inputs: {"use_base_resume": True}),
     Task("trace", "claim_review", "trace.md",
          {"type": "object", "required": ["unsupported"],

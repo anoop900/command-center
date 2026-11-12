@@ -62,6 +62,7 @@ section{display:grid;gap:10px;min-width:0}
 #gate .gitem{padding:8px 0;border-top:1px solid var(--line)}
 #gate .why{font-size:.85rem;margin:2px 0 6px}
 .tag{font-size:.72rem;padding:1px 8px;border-radius:999px;border:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.tag.ats-ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)} .tag.ats-low{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
 .tag.hot{background:var(--hot-bg);border-color:var(--hot);color:var(--hot)}
 .tag.ready{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 .tag.applied{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
@@ -418,7 +419,7 @@ function jobRow(r, x, kind){
     msg = `<span>${x.rv ? `Review done for ${who}: ${esc(reviewSummary(x.rv))}.` : `The review for ${who} finished but left no result. Press Review kit to run it again.`}</span>`; acts = `<button class="btn" data-open="${k}">Details</button>${dismiss}`; st = 'ready';
   } else {
     msg = `<span>Kit ready for ${who}${x.why ? '. ' + esc(x.why) : ''}.</span>`;
-    acts = `${r.link ? `<a class="btn primary" href="${esc(r.link)}" target="_blank" rel="noopener">Apply</a>` : ''}${kitButtons(r)}<button class="btn" data-open="${k}">Details</button>${dismiss}`;
+    acts = `${atsTag(r)}${r.link ? `<a class="btn primary" href="${esc(r.link)}" target="_blank" rel="noopener">Apply</a>` : ''}${kitButtons(r)}<button class="btn" data-open="${k}">Details</button>${dismiss}`;
   }
   return `<div class="bld" data-s="${st}" role="status">${msg}<div class="actions">${acts}</div></div>`;
 }
@@ -444,6 +445,7 @@ function roleButtons(r, compact){
   if (r.link) b.push(`<a class="btn primary" href="${esc(r.link)}" target="_blank" rel="noopener">Apply</a>`);
   if (['new','ready'].includes(r.stage)) {
     if (r.build) b.push(buildTag(r));
+    if (hasKit(r)) b.push(atsTag(r));
     if (!hasKit(r) && (!r.build || ['failed', 'needs_posting', 'waiting'].includes(r.build.s))) b.push(`<button class="btn" data-build="${esc(r.key)}">${r.build ? 'Try again' : 'Build now'}</button>`);
     if (hasKit(r)) b.push(r.rev && r.rev.s === 'reviewing' ? `<span class="tag working"><span class="dot"></span>Reviewing · ${r.rev.m} min</span>` : `<button class="btn" data-review="${esc(r.key)}" title="Independent second check of the resume and answers against the posting and your profile">${r.review ? 'Review again' : 'Review kit'}</button>`);
     if (hasKit(r)) b.push(r.cov && r.cov.s === 'writing' ? `<span class="tag working"><span class="dot"></span>Writing letter · ${r.cov.m} min</span>` : `<button class="btn" data-cover="${esc(r.key)}" title="Writes a short one-page letter in plain wording from your profile, saved with the kit. Only when you press this.">Cover letter</button>`);
@@ -630,12 +632,32 @@ function openRole(key){
       <dt>Location</dt><dd>${esc([r.location, r.mode].filter(Boolean).join(' · ')) || '—'}</dd>
       <dt>${r.stage === 'gate_failed' ? 'Why it failed your rules' : 'Gaps'}</dt><dd>${esc(r.gaps) || (r.stage === 'gate_failed' ? 'a rule you set' : '—')}</dd><dt>Warm path</dt><dd>${esc(r.warm) || '—'}</dd>
       <dt>Kit</dt><dd>${kitWhere(r)}${kitButtons(r) ? `<div class="actions" style="margin-top:6px">${kitButtons(r)}</div>` : ''}</dd>
+      ${atsRows(r)}
       ${untracedRows(r)}
       ${r.review ? `<dt>Review</dt><dd>${esc(reviewSummary(r.review))}${r.review.at ? ' · ' + esc(String(r.review.at).slice(0, 10)) : ''}${(r.review.notes || []).length ? `<ul>${[].concat(r.review.notes).slice(0, 6).map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}${reviewEdits(r)}<span class="note">Full review: Application_Kit.md, section "Independent review".</span></dd>` : ''}
       ${r.link ? `<dt>Posting</dt><dd><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.link)}</a></dd>` : ''}<dt>Found</dt><dd>${esc(r.found)}${r.source ? ' via ' + esc(r.source) : ''}</dd>
       ${r.applied ? `<dt>Applied</dt><dd>${esc(r.applied)}</dd>` : ''}${r.follow_up ? `<dt>Follow-up</dt><dd>${esc(r.follow_up)}</dd>` : ''}</dl></div>
     ${fuBox(r)}`;
   $('drawer').hidden = false; $('close').focus();
+}
+// ATS estimate: stored in the database only (never in the kit folder), shown here and as a badge on the role.
+const atsOf = r => { const a = (KIDX[r.key] || {}).ats; return a && typeof a.score === 'number' && isFinite(a.score) ? a : null; };
+function atsTag(r){
+  const a = atsOf(r); if (!a) return '';
+  return `<span class="tag ${a.score >= 80 ? 'ats-ok' : 'ats-low'}" title="Estimated match for resume-scanning software. Open Details for the breakdown.">ATS ${Math.round(a.score)}</span>`;
+}
+const ATSPART = {keywords: 'Posting keywords', title: 'Job title', quantified: 'Results with numbers', years: 'Years of experience', education: 'Education', format: 'Format'};
+function atsRows(r){
+  const a = atsOf(r); if (!a) return '';
+  const parts = a.parts && typeof a.parts === 'object' ? a.parts : {};
+  const list = (xs, n) => [].concat(xs || []).slice(0, n).map(x => esc(String(x))).join(', ');
+  const rt = a.retry && typeof a.retry === 'object' ? a.retry : null;
+  return `<dt>ATS score</dt><dd><b>${Math.round(a.score)} / 100</b>${a.score >= 80 ? '' : ' · below the 80 target'}
+    <ul>${Object.keys(ATSPART).filter(k => Array.isArray(parts[k])).map(k => `<li>${ATSPART[k]}: ${esc(String(parts[k][0]))} of ${esc(String(parts[k][1]))}</li>`).join('')}</ul>
+    ${(a.add || []).length ? `<p class="note"><b>In your profile but not on this resume:</b> ${list(a.add, 30)}. Rebuild the kit to work them in.</p>` : ''}
+    ${(a.gaps || []).length ? `<p class="note"><b>Asked for, not in your profile (not added):</b> ${list(a.gaps, 30)}. Add one to your profile only if it is true.</p>` : ''}
+    ${rt ? `<p class="note">Second tailoring pass: ${esc(String(rt.first))}${rt.second != null ? ' to ' + esc(String(rt.second)) : ''}, kept the ${rt.kept === 'second' ? 'second' : 'first'} version.</p>` : ''}
+    <p class="note">An estimate of how resume-scanning software reads this resume against the posting. It is stored here only, never in the kit files.</p></dd>`;
 }
 // Statements in the kit that the claim trace could not tie to the profile. "Checked" is a per-browser reminder only.
 const untracedKey = (r, c) => 'cc-checked:' + r.key + ':' + c.claim.slice(0, 60);

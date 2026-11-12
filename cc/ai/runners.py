@@ -127,6 +127,7 @@ def paste_runner(conn):
                                              "created": store.now()}, by="ai")
         return QUEUED
 
+    runner.queues = True        # the kit pipeline skips its optional second tailor pass for runners that queue cards
     return runner
 
 

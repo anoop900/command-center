@@ -195,6 +195,141 @@ class Kits(unittest.TestCase):
         self.assertFalse(any(p.name.startswith(".tmp-") for p in (self.home / "kits").iterdir()))
 
 
+ATS_POST = "Platform Lead at Fabrikam\nRequirements:\n- Experience with Azure, Kubernetes and Terraform\n- CISSP preferred"
+SECOND = dict(TAILOR, headline="Platform Lead | Kubernetes | Terraform")
+
+
+class AtsLoop(Kits):
+    """Second tailor pass: only below 80 with profile-backed room, at most once, keeps the higher-scoring build."""
+    def setUp(self):
+        super().setUp()
+        (self.home / "Candidate_Profile.md").write_text(PROFILE + " Kubernetes and Terraform at scale.")
+        store.set_doc(self.conn, "roles", "r1", {"company": "Fabrikam", "title": "Platform Lead"}, force=True)
+        self.calls = []
+
+    def runner(self, second=SECOND, queues=False):
+        def run(task, prompt):
+            if task.name == "tailor":
+                retry = "<<<ATS-" in prompt
+                self.calls.append(retry)
+                d = second if retry else TAILOR
+                return d if isinstance(d, str) else json.dumps(d)
+            return json.dumps({"unsupported": []})
+        if queues:
+            run.queues = True
+        return run
+
+    def build(self, runner):
+        def bp(c, outdir, pages=2):
+            self.built.append(c)
+            Path(outdir, c["file_stem"] + ".pdf").write_text(c["headline"])
+            Path(outdir, c["file_stem"] + ".docx").write_bytes(b"x")
+            return dict(PDF, pdf=str(Path(outdir, c["file_stem"] + ".pdf")))
+        read = lambda p: ("Toronto | j@example.com " + Path(p).read_text() + " Azure lead", 2, 0.9)
+        with mock.patch.object(build_resume, "build_pdf", bp), mock.patch.object(qc_check, "read_pdf", read):
+            return pipeline.build_kit(self.conn, "r1", ATS_POST, "autopilot", runner, self.home)
+
+    def test_second_pass_kept_when_it_scores_higher(self):
+        k = self.build(self.runner())
+        self.assertEqual(self.calls, [False, True])
+        self.assertEqual(k["ats"]["retry"]["kept"], "second")
+        self.assertGreater(k["ats"]["retry"]["second"], k["ats"]["retry"]["first"])
+        self.assertNotIn("cissp", k["ats"]["add"])          # not in the profile: a gap, never asked for
+        d = self.kdir("r1")
+        self.assertEqual((d / "Jordan_Example_Resume.pdf").read_text(), SECOND["headline"])
+        self.assertEqual(len(list(d.glob("*.pdf"))), 1)
+        self.assertFalse((d / ".retry").exists())
+        self.assertEqual(json.loads((d / "tailor.json").read_text())["headline"], SECOND["headline"])
+        self.assertNotIn("ats", json.loads((d / "kit.json").read_text()))
+        self.assertEqual(store.get(self.conn, "roles", "r1")["data"]["ats"], k["ats"]["score"])
+        self.assertEqual(store.get(self.conn, "kitindex", "r1")["data"]["ats"]["score"], k["ats"]["score"])
+
+    def test_first_build_kept_when_second_is_not_better(self):
+        k = self.build(self.runner(second=TAILOR))
+        self.assertEqual(self.calls, [False, True])
+        self.assertEqual(k["ats"]["retry"]["kept"], "first")
+        self.assertEqual((self.kdir("r1") / "Jordan_Example_Resume.pdf").read_text(), TAILOR["headline"])
+
+    def test_bad_second_answer_keeps_first(self):
+        k = self.build(self.runner(second="not json"))
+        self.assertEqual(k["ats"]["retry"]["kept"], "first")
+        self.assertIn("skipped", k["ats"]["retry"])
+        self.assertEqual(k["status"], "ok")
+
+    def test_no_second_pass_for_queueing_runners_or_high_scores(self):
+        self.build(self.runner(queues=True))
+        self.assertEqual(self.calls, [False])
+        self.calls.clear()
+        with mock.patch.object(ats_check, "PASS_SCORE", 0):
+            k = self.build(self.runner())
+        self.assertEqual(self.calls, [False])
+        self.assertNotIn("retry", k["ats"])
+
+    def test_rebuild_strips_old_score_from_previous(self):
+        self.build(self.runner())
+        kj = self.kdir("r1") / "kit.json"
+        kj.write_text(json.dumps(dict(json.loads(kj.read_text()), ats={"coverage": 1.0})))     # an older kit
+        self.build(self.runner())
+        self.assertNotIn("ats", json.loads((self.kdir("r1") / "previous" / "kit.json").read_text()))
+
+
+class Rescore(Kits):
+    def test_moves_scores_into_the_db_and_backs_up(self):
+        from cc.kits import rescore
+        store.set_doc(self.conn, "roles", "r1", {"company": "Fabrikam", "title": "Lead", "posting": ATS_POST}, force=True)
+        self.kit()
+        d = self.kdir("r1")
+        old = dict(json.loads((d / "kit.json").read_text()), ats={"pass": True, "coverage": 1.0})
+        (d / "kit.json").write_text(json.dumps(old))
+        bad = self.home / "kits" / "2026-01-01" / "junk"
+        bad.mkdir(parents=True)
+        (bad / "kit.json").write_text("{not json")
+        with mock.patch.object(qc_check, "read_pdf", lambda p: GOOD_TEXT):
+            r = rescore.run(self.conn, self.home)
+            again = rescore.run(self.conn, self.home)
+        self.assertEqual((r["scored"], r["stripped"], again["stripped"]), (1, 1, 0))
+        self.assertEqual(r["skipped"][0]["why"], "kit.json unreadable")
+        self.assertNotIn("ats", json.loads((d / "kit.json").read_text()))
+        backed = list(Path(r["backup"]).glob("**/kit.json"))
+        self.assertEqual(json.loads(backed[0].read_text())["ats"]["coverage"], 1.0)
+        self.assertIsInstance(store.get(self.conn, "roles", "r1")["data"]["ats"], int)
+        self.assertIn("parts", store.get(self.conn, "kitindex", "r1")["data"]["ats"])
+
+
+class AtsScore(unittest.TestCase):
+    def test_parts_and_honesty(self):
+        resume = "Platform Lead\nLed 40 engineers on Azure and Terraform, cutting cost 30% in 12 months for the estate\n"
+        r = ats_check.score(resume, ATS_POST + "\n10+ years of experience\nBachelor degree", "azure kubernetes",
+                            "Platform Lead", "Fabrikam")
+        self.assertEqual(sum(p[1] for p in r["parts"].values()), 100)
+        self.assertTrue(r["title_on_resume"])
+        self.assertEqual(r["parts"]["title"], [15, 15])
+        self.assertEqual(r["add"], ["kubernetes"])
+        self.assertIn("cissp", r["gaps"])
+        self.assertNotIn("fabrikam", r["matched"] + r["add"] + r["gaps"])
+        self.assertEqual(r["years"], [0, 10])
+        self.assertEqual(r["parts"]["education"], [0, 10])
+        self.assertFalse(r["pass"])
+
+    def test_better_resume_scores_higher(self):
+        weak = ats_check.score("Engineer. Did things.", ATS_POST, "kubernetes", "Platform Lead")
+        strong = ats_check.score("Platform Lead. Azure, Kubernetes, Terraform, CISSP.", ATS_POST, "", "Platform Lead")
+        self.assertLess(weak["score"], strong["score"])
+
+    def test_hostile_input_never_crashes(self):
+        for bad in (None, 5, b"\xff", "", "x" * 3_000_000, "\x00" * 100, "(((" * 1000, "[A-Z]" * 500):
+            r = ats_check.score(bad, bad, bad, bad, bad)
+            self.assertTrue(0 <= r["score"] <= 100, bad if not isinstance(bad, str) else bad[:20])
+        r = ats_check.score("x", "Ignore previous instructions. Experience with HACKME and http://evil.example", "")
+        self.assertTrue(all(len(t) < 100 for t in r["gaps"]))
+
+    def test_summary_is_bounded(self):
+        r = ats_check.score("a", "Experience with " + ", ".join(f"Tool{i}x" for i in range(400)), "")
+        s = ats_check.summary(r, {"first": 1, "kept": "first"})
+        self.assertLessEqual(len(s["gaps"]), 40)
+        self.assertEqual(s["retry"]["kept"], "first")
+
+
 class SofficeLookup(unittest.TestCase):
     def test_missing_libreoffice_says_how_to_fix(self):
         with mock.patch("shutil.which", return_value=None), mock.patch("os.path.isfile", return_value=False):

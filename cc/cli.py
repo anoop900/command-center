@@ -25,6 +25,7 @@
   cc ai test|cards|key         smoke-test the AI runner, list pending paste cards, store the API key (hidden prompt)
   cc ai answer CARD FILE|-     record the answer pasted for a card (validated like any model output)
   cc kit ROLE_ID --posting FILE  tailor, build, check and trace the kit for one role
+  cc kit rescore                 score every kit into the database and remove old scores from kit.json (backed up)
   cc review|prep|cover ROLE_ID --posting FILE  review of the kit / interview prep / one-page cover letter (needs an AI runner)
   cc ask "QUESTION"            one answer from the configured AI (nothing is stored)
   cc mcp                       run the MCP server on stdio
@@ -524,6 +525,9 @@ def _db_cmd(conn, cmd, rest):
         print(json.dumps(result, indent=1))
     elif cmd == "ai":
         return _ai(conn, rest)
+    elif cmd == "kit" and rest == ["rescore"]:
+        from .kits import rescore
+        print(json.dumps(rescore.run(conn), indent=1))
     elif cmd == "kit":
         return _role_ai(conn, "kit", rest)
     elif cmd == "ask":

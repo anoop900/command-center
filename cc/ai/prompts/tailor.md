@@ -13,6 +13,11 @@ education, employers, titles and dates are never changed.
 4. If a RULES block is given, none of your wording may contain a banned phrase or word it lists (reword the idea
    instead), and a "bullet_changes" entry should rewrite any base bullet that does.
 5. If the posting wants something the candidate lacks, do not cover it up; leave it out.
+6. If an ATS block is given, this is a second pass to help resume-scanning software match the posting. Put the exact
+   posting title from it in "headline" or the first sentence of "profile" if the PROFILE supports that kind of role.
+   Use the exact wording of each "add" phrase somewhere natural (skills, profile or a bullet change); each one is
+   backed by the PROFILE. Prefer bullet changes that show a number the PROFILE gives (count, %, money, time).
+   Never add anything from "gaps": the candidate does not have those.
 
 Example:
 ```json

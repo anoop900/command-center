@@ -7,6 +7,9 @@
 - ZipRecruiter alerts are read again after a change to their links.
 - Buttons in alert emails such as "View job" or "Apply now" are no longer added as job titles.
 - LinkedIn alerts no longer put the city in the company name. Roles you applied to stay off the board when the same job arrives from another alert or another city, including roles saved before this fix.
+- The ATS score is now a realistic 0 to 100 estimate (posting keywords, job title, results with numbers, years, education, format) instead of a check that almost always passed.
+- When a kit scores under 80, it gets one more tailoring pass using the exact job title and the missing words your profile backs, and keeps whichever version scores higher. Skills you do not have are listed as gaps and never added.
+- The score shows in the portal only (a badge on the role, the breakdown in Details). It is no longer written into kit files; `cc kit rescore` moves older scores out of kit folders, with a backup.
 
 ## 1.1.0
 

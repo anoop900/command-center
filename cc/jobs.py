@@ -199,7 +199,8 @@ def _publish_kit(conn, role_id, kit, home=None):
     store.set_doc(conn, "kitindex", role_id, {"role": role_id, "key": key, "folder": slug, "files": files, "on_pc": True,
                                               "status": kit["status"], "built": kit["built"],
                                               "tailor": kit["tailor"]["source"],
-                                              "unsupported": _unsupported(kit)}, by="jobs", force=True)
+                                              "unsupported": _unsupported(kit)}
+                  | ({"ats": kit["ats"]} if isinstance(kit.get("ats"), dict) else {}), by="jobs", force=True)
     _patch(conn, "roles", role_id, {"status": "ready", "kit": slug})
     board = store.get(conn, "board", "roles")
     if board:
