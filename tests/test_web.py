@@ -6,6 +6,8 @@ import tempfile
 import threading
 from pathlib import Path
 import unittest
+
+import cc
 from pathlib import Path
 from unittest import mock
 
@@ -124,9 +126,9 @@ class WebTests(unittest.TestCase):
     def test_source_credit_is_in_the_page(self):
         page = self.call("GET", "/")[1].decode()
         credit = ('<div class="src" id="source">Source: <a href="https://github.com/anoop900/command-center" '
-                  'target="_blank" rel="noopener noreferrer">anoop900/command-center</a></div>')
+                  'target="_blank" rel="noopener noreferrer">anoop900/command-center</a> %s</div>' % cc.current_version())
         if credit not in page:      # the private tree shows a plain label; the export swaps in the credit
-            credit = '<div class="src" id="source">Chief of Staff</div>'
+            credit = '<div class="src" id="source">Chief of Staff %s</div>' % cc.current_version()
         self.assertEqual(page.count(credit), 1)
         self.assertLess(page.index('id="nav-setup"'), page.index(credit))
         self.assertLess(page.index(credit), page.index("</nav>"))

@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from .rules import job_key
-from . import aiprov, api, assets, jobs, backup, coach, config, drafts, filters, learned, learning, modes, optimizer, problems, profile, qcrules, resume, rules_cfg, runnow, scheduler, skills, store, thirdparty, wizard
+from . import current_version, aiprov, api, assets, jobs, backup, coach, config, drafts, filters, learned, learning, modes, optimizer, problems, profile, qcrules, resume, rules_cfg, runnow, scheduler, skills, store, thirdparty, wizard
 from .ai import RunnerError, budget, features, runners
 from .kits.pipeline import KitError
 from .runs import actions, board
@@ -215,7 +215,7 @@ class _Handler(BaseHTTPRequestHandler):
             if not f.exists():
                 return self._send(404, {"error": "missing"})
             # The page fills in its own title from config/settings later; until then show a real name, not the template.
-            return self._send(200, f.read_bytes().replace(b"{{TITLE}}", b"Command Center"), ctype)
+            return self._send(200, f.read_bytes().replace(b"{{TITLE}}", b"Command Center").replace(b"{{VERSION}}", current_version().encode()), ctype)
         if path == "/mode":
             try:
                 cfg = config.load(self.cfg_file)

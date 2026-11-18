@@ -190,5 +190,12 @@ class PostingTermsJunk(unittest.TestCase):
         self.assertEqual(got, {"kubernetes", "okta", "terraform"})
 
 
+class SidebarVersion(unittest.TestCase):
+    def test_checkout_reads_newest_changelog_section(self):
+        import cc
+        self.assertRegex(cc.current_version(), r"^\d+\.\d+\.\d+$")
+        self.assertNotEqual(cc.current_version(), "0.1.0")
+
+
 if __name__ == "__main__":
     unittest.main()
