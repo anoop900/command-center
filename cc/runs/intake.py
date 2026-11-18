@@ -76,6 +76,10 @@ def gate(p, config, rel=None):
     elif rel is not None:
         why = relevance.check(p.get("title", ""), *rel[:2])
         gates["relevance"] = {"verdict": "FAIL" if why else "PASS", "reason": why or "title relevant"}
+    if rel is not None:
+        why = relevance.employment_issue(p.get("title", ""), p.get("text") or p.get("posting"), rel[0])
+        if why:
+            gates["employment"] = {"verdict": "FAIL", "reason": why}
     fails = [f"{n}: {g['reason']}" for n, g in gates.items() if g["verdict"] == "FAIL"]
     flags = [f"{n}: {g['reason']}" for n, g in gates.items() if g["verdict"] == "FLAG"]
     return gates, fails, flags
@@ -93,7 +97,7 @@ def regate(conn, config, profile_text=""):
         if not (waiting or fresh):
             continue
         p = {"title": r.get("title"), "location": r.get("location", ""), "remote": r.get("work_mode") == "remote",
-             "pay_text": r.get("pay", "")}
+             "pay_text": r.get("pay", ""), "text": r.get("posting", "")}
         gates, fails, flags = gate(p, config, rel)
         if fails and fresh:
             r.update(status="skipped (gate)", decision="skip", gate_review="pending", flags=flags, reason_or_gaps="; ".join(fails))

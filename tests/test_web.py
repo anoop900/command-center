@@ -73,6 +73,15 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.call("POST", "/learned", {"action": "targets", "items": ["Marine Biologist"]})[1]["targets"], ["Marine Biologist"])
         self.assertEqual(self.call("POST", "/learned", {"action": "forget", "term": "oncology"})[1]["forgotten"], ["oncology"])
 
+    def test_areas_endpoint(self):
+        for bad in ({}, {"action": "x"}, {"action": "save"}, {"action": "save", "areas": "cloud"}, {"action": "save", "areas": [1]}):
+            self.assertEqual(self.call("POST", "/areas", bad)[0], 400, bad)
+        code, v = self.call("POST", "/areas", {"action": "propose"})
+        self.assertEqual((code, sorted(v)), (200, ["areas", "senior_ic", "source"]))
+        code, v = self.call("POST", "/areas", {"action": "save", "areas": [" Cloud ", "AI"], "employment": ["full-time"]})
+        self.assertEqual((code, v["areas"], v["employment"]), (200, ["cloud", "ai"], ["full-time"]))
+        self.assertEqual(self.call("POST", "/areas", {"action": "save", "areas": []}, {"Origin": "http://evil.example"})[0], 403)
+
     def test_filters_endpoint(self):
         code, v = self.call("GET", "/filters")
         self.assertEqual((code, v["failed"]["total"], v["hidden"]), (200, 0, []))

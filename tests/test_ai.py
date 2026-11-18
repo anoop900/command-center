@@ -26,6 +26,7 @@ INPUTS = {
     "relevance_judge": {"title": "Java Developer", "posting": "Build Java services.", "profile": "Security architect.",
                         "decisions": ["not_fit (Not a match): java developer"]},
     "coach_wording": {"tasks": [{"id": "a", "title": "Do {names}", "steps": ["s"]}]},
+    "target_areas": {"profile": "Security architect."},
 }
 GOOD = {
     "score": {"scores": {"technical": 80, "experience": 70}},
@@ -47,6 +48,7 @@ GOOD = {
     "linkedin_jobs": {"postings": [{"title": "t", "company": "c", "url": "linkedin.com/jobs/view/1"}]},
     "learning_suggest": {"avoid": ["oncology"]},
     "relevance_judge": {"fit": "no", "why": "A developer role; the profile is security architecture."},
+    "target_areas": {"areas": ["security", "architecture"], "senior_ic": ["architect"]},
     "coach_wording": {"tasks": [{"id": "a", "title": "Do {names} now", "steps": ["s"], "praise": "Well done, {streak}."}]},
 }
 

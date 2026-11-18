@@ -25,6 +25,43 @@ STOP = {"the", "and", "for", "with", "senior", "sr", "lead", "head", "director",
         "a", "an", "global", "remote", "ii", "iii", "iv", "associate", "principal", "staff", "new", "team", "group", "services",
         "intern", "internship", "junior", "graduate", "student"}
 
+# Target-area gate (setting "areas"). The user's own list of fields (proposed from their resume at setup, edited by
+# them) decides: a title must name one of the areas, or (staff/principal rule, setting "senior_ic") be a senior
+# individual-contributor title in them. No field list ships with the code, so it fits any profession; with no
+# areas set the gate is off. "employment" lists the job types wanted (full-time, contract); part-time, seasonal and
+# casual roles are dropped when it is set.
+JUNIOR_ROLES = ("analyst", "specialist", "assistant", "administrator", "coordinator", "technician", "representative",
+                "associate", "intern", "agent", "clerk", "supervisor")
+NOT_WANTED_TYPE = ("part-time", "part time", "casual", "seasonal", "per diem", "on-call", "on call", "co-op", "coop",
+                   "internship", "intern", "temporary", "temp", "student")
+TYPE_LINE = re.compile(r"(employment type|job type|position type|work type|schedule|status)\W{0,4}(part[- ]time|casual|"
+                       r"seasonal|temporary|per diem|on[- ]call|internship|co-?op)", re.I)
+
+
+def domain_hit(title, cfg):
+    """The area word a title names, or None."""
+    for w in cfg.get("areas", []):
+        if _has(title, w):
+            return w
+    ic = cfg.get("senior_ic", [])
+    if ic and any(_has(title, x) for x in ("staff", "principal")) and any(_has(title, e) for e in ic):
+        return "staff/principal " + next(e for e in ic if _has(title, e))
+    return None
+
+
+def employment_issue(title, text, cfg):
+    """Why the job type is not wanted, or None. Only when the user listed the types they want."""
+    if not cfg.get("employment"):
+        return None
+    t = str(title or "").lower()
+    for w in NOT_WANTED_TYPE:
+        if w not in (x.lower() for x in cfg["employment"]) and _has(t, w):
+            return f"job type: the title says {w}"
+    m = TYPE_LINE.search(str(text or "")[:6000])
+    if m:
+        return f"job type: the posting says {m.group(2).lower()}"
+    return None
+
 
 def terms(title):
     """Lowercase word terms of a title (no stop or level words, 3+ letters)."""
@@ -34,7 +71,7 @@ def terms(title):
 def settings(conn):
     from cc import store
     d = store.get(conn, "config", "relevance")
-    s = {"enabled": True, "exclude": [], "include": [], "forgotten": [], "ai": False, "targets": [], "levels": [], "v2": False}
+    s = {"enabled": True, "exclude": [], "include": [], "forgotten": [], "ai": False, "targets": [], "levels": [], "v2": False, "areas": [], "senior_ic": [], "employment": []}
     s.update(d["data"] if d else {})
     return s
 
@@ -92,6 +129,15 @@ def assess(title, cfg, model=None, profile_terms=()):
     hard = check(title, dict(cfg, v2=False), {"rules": []})
     if hard:
         return {"verdict": "drop", "score": -99, "reason": hard}
+    if cfg.get("areas"):
+        lows = [LADDER.index(x) for x in cfg.get("levels", []) if x in LADDER]
+        lvl = level_of(title)
+        if lows and min(lows) >= LADDER.index("lead") and any(_has(title, j) for j in JUNIOR_ROLES)                 and not (lvl is not None and lvl >= LADDER.index("manager"))                 and not any(_has(title, x) for x in ("lead", "principal", "staff")):
+            return {"verdict": "drop", "score": -50, "reason": "an individual-contributor support role, below the level you want"}
+        hit = domain_hit(title, cfg)
+        if hit:
+            return {"verdict": "keep", "score": 5, "reason": f"in your target area ('{hit}')"}
+        return {"verdict": "drop", "score": -50, "reason": "outside your target areas (" + ", ".join(cfg["areas"][:6]) + ")"}
     ts = set(terms(title))
     gone = {t.lower() for t in cfg.get("forgotten", [])}
     tgt = sorted(ts & set(terms(" ".join(cfg.get("targets", [])))))
@@ -140,3 +186,35 @@ def check(title, cfg, model=None, profile_terms=()):
             return (f"AI suggested avoiding '{r['term']}'" if r.get("ai")
                     else f"learned: you marked {r['neg']} roles with '{r['term']}' as not a match")
     return None
+
+
+def propose_areas(profile_text, ai=None):
+    """Target areas for a resume: {'areas': [...], 'senior_ic': [...], 'source': 'ai'|'titles'}. With an AI runner the
+    AI reads the resume; without one (or when it fails) the words that repeat in the resume's own job-title lines are used.
+    The user confirms or edits the list before it is saved, so a wrong guess never filters anything on its own."""
+    if ai:
+        from cc import ai as ai_layer
+        mode, runner = ai
+        res = ai_layer.run_task("target_areas", {"profile": profile_text or ""}, mode, runner)
+        if res.status == "ok" and res.source == "ai" and res.data.get("areas"):
+            clean = lambda xs: [str(x).strip().lower()[:40] for x in xs if str(x).strip()]
+            return {"areas": clean(res.data["areas"]), "senior_ic": clean(res.data.get("senior_ic", [])), "source": "ai"}
+    from collections import Counter
+    c = Counter()
+    for line in str(profile_text or "").splitlines():
+        if len(line) < 120 and (level_of(line) is not None or "|" in line):
+            c.update(set(terms(line)))
+    return {"areas": [w for w, n in c.most_common(20) if n >= 2][:12], "senior_ic": [], "source": "titles"}
+
+
+def save_areas(conn, areas, senior_ic=(), employment=None):
+    """Store the confirmed list in the relevance setting (the user's own data, never shipped in code)."""
+    from cc import store
+    cur = store.get(conn, "config", "relevance")
+    data = dict(cur["data"] if cur else {})
+    data["areas"] = [str(a).strip().lower()[:40] for a in areas if str(a).strip()][:40]
+    data["senior_ic"] = [str(a).strip().lower()[:30] for a in senior_ic if str(a).strip()][:10]
+    if employment is not None:
+        data["employment"] = [str(a).strip().lower()[:20] for a in employment][:6]
+    store.set_doc(conn, "config", "relevance", data, if_version=cur["version"] if cur else None, by="areas")
+    return data

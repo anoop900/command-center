@@ -57,7 +57,7 @@ def run(conn, ai, profile_text, today):
     return [{"text": text[:160], "kind": "fyi", "key": ""}]
 
 
-def dry_run(conn, profile_text, today, days=7):
+def dry_run(conn, profile_text, today, days=7, areas=None):
     """Relevance v1 against v2 on roles found in the last `days` days, read-only. Effective change counts only roles
     no other gate (pay, location, work authorization) fails, since those stay out either way."""
     from cc.runs import intake
@@ -72,7 +72,7 @@ def dry_run(conn, profile_text, today, days=7):
         if str(r.get("date_found", "")) < since:
             continue
         old = "fail" if relevance.check(r.get("title", ""), dict(cfg, v2=False), mdl) else "pass"
-        new = relevance.assess(r.get("title", ""), cfg, mdl, prof)
+        new = relevance.assess(r.get("title", ""), dict(cfg, **areas) if areas else cfg, mdl, prof)
         other = [n for n, v in (r.get("gates") or {}).items() if n != "relevance" and v == "FAIL"]
         table[(old, new["verdict"])] = table.get((old, new["verdict"]), 0) + 1
         rows.append({"title": r.get("title", ""), "company": r.get("company", ""), "date": r.get("date_found", ""),

@@ -22,6 +22,29 @@ TERMS = ["azure", "aws", "gcp", "google cloud", "hybrid cloud", "multi-cloud", "
  "hiring", "talent", "stakeholder", "executive", "agile", "scrum", "pmp", "program management",
  "project management", "portfolio", "public sector", "regulated", "financial services", "healthcare"]
 
+# Real skills, tools and certifications beyond the list above. A keyword is only ever one of these, or an acronym or
+# camel-case tool name the candidate's own profile also contains: ordinary words and company or place names never count.
+TERMS += ["ai", "artificial intelligence", "ml", "sql", "api", "apis", "snowflake", "kafka", "tableau", "salesforce", "langchain", "langgraph", "togaf", "cissp", "cism", "cisa", "ccsp",
+ "comptia", "postgresql", "mysql", "oracle", "sql server", "mongodb", "redis", "elasticsearch", "typescript", "javascript",
+ "java", "golang", "rust", "kotlin", "c#", ".net", "node.js", "react", "angular", "spring boot", "rest api", "graphql",
+ "microservices", "openshift", "argo", "helm", "jenkins", "gitlab", "bitbucket", "sonarqube", "linux", "unix", "windows server",
+ "sharepoint", "dynamics 365", "power platform", "power automate", "sap", "workday", "peoplesoft", "netsuite", "erp", "crm",
+ "etl", "data warehouse", "data lake", "data governance", "data quality", "data engineering", "data science",
+ "machine learning", "deep learning", "mlops", "aiops", "rag", "openai", "anthropic", "claude", "bedrock", "vertex ai",
+ "sagemaker", "azure devops", "bicep", "cloudformation", "pulumi", "vault", "keycloak", "ping identity", "cyberark",
+ "sailpoint", "privileged access", "ueba", "edr", "xdr", "crowdstrike", "sentinel", "palo alto", "fortinet",
+ "cisco", "juniper", "f5", "load balancer", "ipsec", "bgp", "ospf", "vpc", "kpi", "okr", "roi", "tco",
+ "p&l", "sdlc", "software engineering", "enterprise architecture", "solution architecture", "solutions architect",
+ "site reliability engineering", "release management", "configuration management", "asset management", "cmdb",
+ "service management", "service catalog", "knowledge management", "itil 4", "cobit", "gdpr", "hipaa", "fedramp", "sox",
+ "iso 27001", "iso 9001", "soc 1", "soc 2", "pci dss", "cmmc", "fips", "business intelligence", "analytics",
+ "reporting", "microsoft excel", "powerpoint", "visio", "confluence", "slack", "microsoft teams", "intune", "sccm", "jamf",
+ "mdm", "backup", "veeam", "commvault", "netapp", "pure storage", "virtualization",
+ "vsphere", "nutanix", "proxmox", "terraform cloud", "mcp", "prompt engineering", "fine-tuning", "vector database",
+ "design thinking", "six sigma", "kanban", "prince2", "mba", "cpa", "pmo", "negotiation",
+ "p&l management", "change control", "sla management", "financial planning", "forecasting", "cost management"]
+TERMS = list(dict.fromkeys(TERMS))
+
 SYN = {"multi-factor": ["mfa"], "mfa": ["multi-factor"], "single sign-on": ["sso"], "sso": ["single sign-on"],
        "monitoring": ["observability", "grafana", "azure monitor"], "vendor management": ["vendor"],
        "business continuity": ["disaster recovery", "dr "], "risk management": ["risk"],
@@ -29,10 +52,14 @@ SYN = {"multi-factor": ["mfa"], "mfa": ["multi-factor"], "single sign-on": ["sso
        "talent": ["hiring", "coach"], "transformation": ["migration", "moderniz"], "privacy": ["pipeda", "phipa"],
        "outsourc": ["outsourced"], "mentor": ["coach"], "governance": ["governance"]}
 
+def _pre(t):    # short terms must match a whole word (not "lan" in "plan"); longer ones may take endings
+    return r"(?<![a-z0-9])" + re.escape(t) + (r"(?![a-z0-9])" if len(t) <= 4 else "")
+
+
 def has(t, s, syn=True):
-    if re.search(r"(?<![a-z0-9])" + re.escape(t), s):
+    if re.search(_pre(t), s):
         return True
-    return syn and any(re.search(r"(?<![a-z0-9])" + re.escape(x), s) for x in SYN.get(t, []))
+    return syn and any(re.search(_pre(x), s) for x in SYN.get(t, []))
 
 
 def check(text, posting, profile):
@@ -80,7 +107,8 @@ NOISE = {"salary", "compensation", "notice", "disclaimer", "benefits", "skills",
          "computer science", "development", "information technology"}
 REQ_LINE = re.compile(r"experience|knowledge|proficien|familiar|certif|skill|expert|hands-on|background in|degree|"
                       r"understanding of|preferred|required|must have|nice to have", re.I)
-CAPS = re.compile(r"\b([A-Z]{2,6}s?|[A-Z][a-z]+[A-Z][A-Za-z]+|[A-Z][a-z]{2,}(?: [A-Z][a-z]{2,}){0,3})\b")
+CURRENCY_PLACE = set('linkedin indeed glassdoor usd cad eur gbp aud inr us usa uk eu ca ny nyc la sf gta ontario toronto canada fte pst est cst ltd inc llc corp'.split())
+CAPS = re.compile(r"\b([A-Z]{3,6}s?|[A-Z][a-z]+[A-Z][A-Za-z]+|[A-Z][a-z]{2,}(?: [A-Z][a-z]{2,}){0,3})\b")
 CREDS = re.compile(r"(pmp|itil|togaf|cissp|aws certified[\w -]{0,30}|"
                    r"azure solutions architect expert)", re.I)
 
@@ -101,23 +129,14 @@ def _years(s):
     return [int(x) for x in re.findall(r"(?<!\d)(\d{1,2})\s*\+?\s*(?:years|yrs)", s.lower()) if 0 < int(x) <= 40]
 
 
-def posting_terms(posting, company=""):
-    """Skill-like words a recruiter or ATS would search: TERMS hits, plus acronyms and capitalised tech nouns on
-    requirement lines, minus the company name and boilerplate."""
+def posting_terms(posting, company="", profile=""):
+    """Skill words a recruiter or ATS would search: the TERMS list plus certifications. Nothing else is a keyword, so
+    sentence openers, company and place names and currencies can never show up. profile is kept for callers."""
     posting = _str(posting).replace("\r", "")
     low = re.sub(r"\s+", " ", posting.lower())
     terms = {t for t in TERMS if has(t, low, syn=False)}
-    co = set(_toks(_str(company)))
     for line in posting.split("\n"):
-        if not REQ_LINE.search(line):
-            continue
-        for m in CAPS.findall(line):
-            w = m.lower()
-            ws = w.split()
-            if ws[0] in STOP or set(ws) & BOILER or set(ws) & (co | NOISE) or w in NOISE:
-                continue
-            terms.add(w)
-        terms.update(d.lower().strip() for d in CREDS.findall(line))
+        terms.update(d.lower().split(" or ")[0].strip() for d in CREDS.findall(line))
     return {t for t in terms if len(t) > 1}
 
 
@@ -127,7 +146,7 @@ def score(text, posting, profile, title="", company=""):
     text, posting, profile, title = _str(text), _str(posting), _str(profile).lower(), _str(title)[:300]
     low = re.sub(r"\s+", " ", text.lower())
     post_low = posting.lower()
-    terms = posting_terms(posting, company)
+    terms = posting_terms(posting, company, profile)
     hit = lambda t, s: has(t, s, syn=False) if t in TERMS else _word(t, s)
     matched = sorted(t for t in terms if hit(t, low))
     miss = sorted(terms - set(matched))

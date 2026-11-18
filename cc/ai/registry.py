@@ -247,6 +247,11 @@ def _judge_input(inputs):
     return "\n".join(trust.wrap_untrusted(t, label) for t, label in parts)
 
 
+def _areas_input(inputs):
+    _need(inputs, "profile")
+    return trust.wrap_untrusted(_text(inputs["profile"], 12_000) or "(no profile)", "RESUME")
+
+
 def _triage_input(inputs):
     lines = [f"{i}. From: {str(x.get('from', ''))[:80]} | Subject: {str(x.get('subject', ''))[:120]} | "
              f"{str(x.get('snippet', ''))[:200]}" for i, x in enumerate(_mail_items(inputs), 1)]
@@ -426,6 +431,11 @@ TASKS = {t.name: t for t in (
          {"type": "object", "required": ["fit", "why"],
           "properties": {**_FLAG, "fit": {"type": "string", "enum": ["yes", "no"]}, "why": {"type": "string", "maxLength": 200}}},
          _judge_input),
+    Task("target_areas", "relevance_judge", "target_areas.md",
+         {"type": "object", "required": ["areas"],
+          "properties": {**_FLAG, "areas": {"type": "array", "maxItems": 25, "items": {"type": "string", "maxLength": 40}},
+                         "senior_ic": {"type": "array", "maxItems": 8, "items": {"type": "string", "maxLength": 30}}}},
+         _areas_input),
     Task("profile_draft", None, "profile_draft.md",
          {"type": "object", "required": ["headline", "summary", "skills"],
           "properties": {**_FLAG, "headline": _STR, "summary": _STR,

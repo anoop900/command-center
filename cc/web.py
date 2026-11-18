@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from .rules import job_key
-from . import current_version, aiprov, api, assets, jobs, backup, coach, config, drafts, filters, learned, learning, modes, optimizer, problems, profile, qcrules, resume, rules_cfg, runnow, scheduler, skills, store, thirdparty, wizard
+from . import current_version, aiprov, api, assets, jobs, backup, coach, config, drafts, filters, learned, learning, modes, optimizer, problems, relevance, profile, qcrules, resume, rules_cfg, runnow, scheduler, skills, store, thirdparty, wizard
 from .ai import RunnerError, budget, features, runners
 from .kits.pipeline import KitError
 from .runs import actions, board
@@ -504,6 +504,8 @@ class _Handler(BaseHTTPRequestHandler):
             return self._budget()
         if path == "/filters":
             return self._filters()
+        if path == "/areas":
+            return self._areas()
         if path == "/skills":
             return self._skills()
         if path == "/ats":
@@ -558,6 +560,33 @@ class _Handler(BaseHTTPRequestHandler):
         conn = store.connect(self.db_file)
         try:
             return self._send(200, filters.apply(conn, self.cfg_file.parent, data, self._jobs()))
+        except (ValueError, store.Conflict, config.ConfigError) as e:
+            return self._send(400, {"error": str(e)})
+        except sqlite3.Error:
+            return self._send(503, {"error": "database busy"})
+        finally:
+            conn.close()
+
+    def _areas(self):
+        """Body: {action: propose} reads the resume and answers a suggested list; {action: save, areas, senior_ic?, employment?}
+        stores the list the user confirmed. Nothing filters until a list is saved."""
+        data = self._body("wizard")
+        if data is None:
+            return
+        conn = store.connect(self.db_file)
+        try:
+            if data.get("action") == "propose":
+                f = self.cfg_file.parent / "Candidate_Profile.md"
+                text = f.read_text(encoding="utf-8") if f.is_file() else ""
+                cfg = config.load(self.cfg_file)
+                ai = (cfg.mode.name, self.ai_runner or runners.make_runner(cfg, conn)) if cfg.ai.runner != "none" else None
+                return self._send(200, relevance.propose_areas(text, ai))
+            if data.get("action") == "save":
+                lst = lambda k: data.get(k) if isinstance(data.get(k), list) and all(isinstance(x, str) for x in data[k]) else None
+                if lst("areas") is None:
+                    return self._send(400, {"error": "areas: a list of words expected"})
+                return self._send(200, relevance.save_areas(conn, lst("areas"), lst("senior_ic") or [], lst("employment")))
+            return self._send(400, {"error": "action: propose or save expected"})
         except (ValueError, store.Conflict, config.ConfigError) as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error:

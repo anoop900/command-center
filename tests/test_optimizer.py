@@ -189,6 +189,58 @@ class PostingTermsJunk(unittest.TestCase):
                                       "Kubernetes and Okta. Familiar with Terraform.")
         self.assertEqual(got, {"kubernetes", "okta", "terraform"})
 
+    def test_ordinary_words_currencies_and_substrings_are_not_keywords(self):
+        got = ats_check.posting_terms("Additionally, wherever you work we plan to hire. Salary in USD. We want people "
+                                      "who land deals. Please apply on LinkedIn. Experience with SQL and Kubernetes.",
+                                      "", "SQL Kubernetes USD")
+        self.assertEqual(got, {"sql", "kubernetes"})
+
+class DomainGate(unittest.TestCase):
+    CFG = {"v2": True, "levels": ["lead", "manager", "director", "executive"], "senior_ic": ["engineer", "architect"],
+           "areas": ["cloud", "ai", "infrastructure", "platform", "devops", "architecture", "it", "technology", "fde",
+                     "forward deployed"]}
+
+    def test_areas_staff_principal_pass_others_drop(self):
+        from cc import relevance
+        for t in ("Director, AI Platforms", "Principal Cloud Engineer", "Staff Software Engineer", "Forward Deployed Engineer",
+                  "Head of IT Operations"):
+            self.assertEqual(relevance.assess(t, self.CFG)["verdict"], "keep", t)
+        for t in ("Registered Nurse", "Senior Accountant", "Sr. Financial Analyst", "Bulk Truck Driver",
+                  "Senior Cloud Analyst", "Sales Closer"):
+            self.assertEqual(relevance.assess(t, self.CFG)["verdict"], "drop", t)
+
+    def test_learned_words_never_block_an_area_role(self):
+        from cc import relevance
+        mdl = {"rules": [{"term": "business", "neg": 11}, {"term": "wealth", "neg": 6}]}
+        self.assertEqual(relevance.assess("Director of Business Technology", self.CFG, mdl)["verdict"], "keep")
+
+    def test_no_areas_means_the_gate_is_off(self):
+        from cc import relevance
+        self.assertEqual(relevance.assess("Registered Nurse", {"v2": True})["verdict"], "keep")
+
+    def test_job_type(self):
+        from cc import relevance
+        cfg = {"employment": ["full-time", "contract"]}
+        self.assertIn("part-time", relevance.employment_issue("Cloud Lead (Part-Time)", "", cfg))
+        self.assertIn("seasonal", relevance.employment_issue("Cloud Lead", "Employment type: Seasonal", cfg))
+        self.assertIsNone(relevance.employment_issue("Cloud Lead - 1 year contract", "Part-time employees get benefits.", cfg))
+        self.assertIsNone(relevance.employment_issue("Cloud Lead (Part-Time)", "", {}))
+
+
+class ProposeAreas(unittest.TestCase):
+    RESUME = "\n".join(["Jane Doe", "Senior Cloud Architect | Acme", "Director of Cloud Platform | Beta",
+                        "Lead Cloud Engineer | Gamma"])
+
+    def test_titles_fallback_and_ai_path(self):
+        from cc import relevance
+        got = relevance.propose_areas(self.RESUME)
+        self.assertEqual(got["source"], "titles")
+        self.assertIn("cloud", got["areas"])
+        fake = mock.Mock(status="ok", source="ai", data={"areas": [" Cloud ", "Infra"], "senior_ic": ["Engineer"]})
+        with mock.patch("cc.ai.run_task", return_value=fake):
+            got = relevance.propose_areas(self.RESUME, ("full", object()))
+        self.assertEqual((got["areas"], got["senior_ic"], got["source"]), (["cloud", "infra"], ["engineer"], "ai"))
+
 
 class SidebarVersion(unittest.TestCase):
     def test_checkout_reads_newest_changelog_section(self):
