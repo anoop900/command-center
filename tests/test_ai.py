@@ -23,6 +23,8 @@ INPUTS = {
     "inbox_triage": {"mail": [{"from": "a", "subject": "s", "known": True}]},
     "linkedin_jobs": {"search": "s"},
     "learning_suggest": {"signals": ["not_fit (Not a match): oncology nurse"]},
+    "relevance_judge": {"title": "Java Developer", "posting": "Build Java services.", "profile": "Security architect.",
+                        "decisions": ["not_fit (Not a match): java developer"]},
     "coach_wording": {"tasks": [{"id": "a", "title": "Do {names}", "steps": ["s"]}]},
 }
 GOOD = {
@@ -44,6 +46,7 @@ GOOD = {
     "inbox_triage": {"items": [{"n": 1, "why": "w"}]},
     "linkedin_jobs": {"postings": [{"title": "t", "company": "c", "url": "linkedin.com/jobs/view/1"}]},
     "learning_suggest": {"avoid": ["oncology"]},
+    "relevance_judge": {"fit": "no", "why": "A developer role; the profile is security architecture."},
     "coach_wording": {"tasks": [{"id": "a", "title": "Do {names} now", "steps": ["s"], "praise": "Well done, {streak}."}]},
 }
 

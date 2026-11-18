@@ -34,7 +34,7 @@ def terms(title):
 def settings(conn):
     from cc import store
     d = store.get(conn, "config", "relevance")
-    s = {"enabled": True, "exclude": [], "include": [], "forgotten": [], "ai": False, "targets": [], "levels": []}
+    s = {"enabled": True, "exclude": [], "include": [], "forgotten": [], "ai": False, "targets": [], "levels": [], "v2": False}
     s.update(d["data"] if d else {})
     return s
 
@@ -75,8 +75,53 @@ def suggest_levels(jobs, today=None):
     return [LADDER[max(top, 1)]]
 
 
-def check(title, cfg, model=None):
-    """None when the title is relevant, else the reason it was routed to review."""
+LEARNED_W, STRONG_W, AI_W, NEG_CAP = 1, 2, 1, 4     # a strong learned word has 4+ not-a-match roles
+STRONG_NEG = 4
+DROP_AT = -3                                           # needs two learned words (or one strong + one AI word): one never drops
+
+
+def assess(title, cfg, model=None, profile_terms=()):
+    """Relevance v2. {'verdict': keep|drop|borderline, 'score': int, 'reason': str}. The user's own keep list, levels and
+    exclude list are hard rules; learned and AI-suggested words are weights, so a single learned word never drops a role.
+    Positives: a word from the user's target titles (+3), words of roles they applied to (+1 each, max 3), words their
+    profile names (+1 each, max 2). Borderline roles go to the AI judge when one can run, else stay on the board."""
+    if not cfg.get("enabled", True):
+        return {"verdict": "keep", "score": 0, "reason": "relevance check off"}
+    if any(_has(title, t) for t in (t.lower() for t in cfg.get("include", []))):
+        return {"verdict": "keep", "score": 9, "reason": "title has a word on your keep list"}
+    hard = check(title, dict(cfg, v2=False), {"rules": []})
+    if hard:
+        return {"verdict": "drop", "score": -99, "reason": hard}
+    ts = set(terms(title))
+    gone = {t.lower() for t in cfg.get("forgotten", [])}
+    tgt = sorted(ts & set(terms(" ".join(cfg.get("targets", [])))))
+    liked = sorted((ts & set((model or {}).get("pos_terms", []))) - gone)
+    prof = sorted((ts & {str(t).lower() for t in profile_terms}) - set(tgt) - set(liked))
+    neg, bad = 0, []
+    for r in (model or {}).get("rules", []):
+        if r["term"] in gone or not _has(title, r["term"]):
+            continue
+        neg += AI_W if r.get("ai") else STRONG_W if r.get("neg", 0) >= STRONG_NEG else LEARNED_W
+        bad.append(f"'{r['term']}'" + (" (AI)" if r.get("ai") else f" ({r.get('neg', 0)} not-a-match)"))
+    score = (3 if tgt else 0) + min(3, len(liked)) + min(2, len(prof)) - min(NEG_CAP, neg)
+    plus = ([f"target word '{tgt[0]}'"] if tgt else []) + ([f"like roles you applied to ({', '.join(liked[:3])})"] if liked else []) \
+        + ([f"in your profile ({', '.join(prof[:2])})"] if prof else [])
+    if not bad:
+        return {"verdict": "keep", "score": score, "reason": "; ".join(plus) or "no signal either way"}
+    against = "learned " + ", ".join(bad[:3])
+    if score >= 1:
+        return {"verdict": "keep", "score": score, "reason": f"{'; '.join(plus)} outweigh {against}"}
+    if score <= DROP_AT:
+        return {"verdict": "drop", "score": score, "reason": f"{against}, nothing in its favour"}
+    return {"verdict": "borderline", "score": score, "reason": f"borderline, not judged: {against}" + (f" vs {'; '.join(plus)}" if plus else "")}
+
+
+def check(title, cfg, model=None, profile_terms=()):
+    """None when the title is relevant, else the reason it was routed to review. With the v2 setting on this is assess():
+    only a 'drop' fails here; borderline roles stay on the board."""
+    if cfg.get("v2"):
+        a = assess(title, cfg, model, profile_terms)
+        return a["reason"] if a["verdict"] == "drop" else None
     if not cfg.get("enabled", True):
         return None
     keep = [t.lower() for t in cfg.get("include", [])]

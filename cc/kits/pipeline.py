@@ -6,7 +6,7 @@ import re
 import shutil
 from datetime import datetime, timezone
 
-from .. import ai, config, kitfolder, kitprefs, relevance, resume, store
+from .. import ai, config, kitfolder, kitprefs, relevance, resume, skills, store
 from . import ats_check, build_resume, qc_check
 from . import content as kit_content
 
@@ -125,7 +125,7 @@ def build_kit(conn, role_id, posting, mode, runner=ai.none_runner, home=None):
         raise KitError("the posting text is empty")
     base = _read(home / "content.json", "resume content", True)
     rules = _read(home / "qc_rules.json", "qc rules", True)
-    profile = _read(home / "Candidate_Profile.md", "candidate profile")
+    profile = _read(home / "Candidate_Profile.md", "candidate profile") + skills.backed_text(conn)   # ticked skills are profile-backed (D8)
     if not isinstance(base, dict):
         raise KitError("content.json must be an object")
     try:

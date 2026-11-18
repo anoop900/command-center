@@ -236,6 +236,17 @@ def _learning_input(inputs):
     return trust.wrap_untrusted(chr(10).join(x[:160] for x in sig[:80]), "SIGNALS")
 
 
+def _judge_input(inputs):
+    _need(inputs, "title", "posting", "profile", "decisions")
+    dec = inputs["decisions"]
+    if not (isinstance(dec, list) and all(isinstance(x, str) for x in dec)):
+        raise ValueError("decisions must be a list of lines")
+    parts = ((_text(inputs["title"], 300), "TITLE"), (_text(inputs["posting"], 12_000) or "(no posting text)", "POSTING"),
+             (_text(inputs["profile"], 8_000) or "(no profile)", "PROFILE"),
+             ("\n".join(x[:160] for x in dec[-60:]) or "(none yet)", "DECISIONS"))
+    return "\n".join(trust.wrap_untrusted(t, label) for t, label in parts)
+
+
 def _triage_input(inputs):
     lines = [f"{i}. From: {str(x.get('from', ''))[:80]} | Subject: {str(x.get('subject', ''))[:120]} | "
              f"{str(x.get('snippet', ''))[:200]}" for i, x in enumerate(_mail_items(inputs), 1)]
@@ -411,6 +422,10 @@ TASKS = {t.name: t for t in (
          {"type": "object", "required": ["avoid"],
           "properties": {**_FLAG, "avoid": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 30}}}},
          _learning_input),
+    Task("relevance_judge", "relevance_judge", "relevance_judge.md",
+         {"type": "object", "required": ["fit", "why"],
+          "properties": {**_FLAG, "fit": {"type": "string", "enum": ["yes", "no"]}, "why": {"type": "string", "maxLength": 200}}},
+         _judge_input),
     Task("profile_draft", None, "profile_draft.md",
          {"type": "object", "required": ["headline", "summary", "skills"],
           "properties": {**_FLAG, "headline": _STR, "summary": _STR,

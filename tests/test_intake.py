@@ -85,6 +85,18 @@ class Intake(unittest.TestCase):
         moved = intake.regate(self.conn, CFG)
         self.assertEqual((len(moved["to_review"]), len(moved["to_new"])), (1, 1))      # oncology out, intern back (list replaced)
 
+    def test_v2_one_learned_word_keeps_role_with_reason(self):
+        from cc import learned
+        store.set_doc(self.conn, "config", "relevance", {"v2": True})
+        for i, terms in enumerate([["oncology", "pastry"]] * 4):                 # 4 not-a-match roles: strong words
+            store.set_doc(self.conn, "signals", f"s{i}", {"kind": "not_fit", "terms": terms})
+        learned.train(self.conn)
+        out = self.run_intake([posting(title="Oncology Platform Director", url="https://x.example/1"),
+                               posting(title="Oncology Pastry Chef", url="https://x.example/2")])
+        self.assertEqual((len(out["added"]), len(out["skipped"])), (1, 1))      # one learned word: kept; two, nothing for it: out
+        r = store.get(self.conn, "roles", job_key.doc_id(out["added"][0]))["data"]
+        self.assertIn("oncology", r["relevance_why"])
+
     def test_flag_keeps_role(self):
         res = intake.fetch_boards(self.conn, CFG, opener(ROUTES), TODAY)
         self.run_intake(res["postings"])

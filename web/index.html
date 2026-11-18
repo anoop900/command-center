@@ -166,6 +166,8 @@ a.btn{text-decoration:none}
     <button id="nav-tasks" data-view="tasks">Tasks <span class="n" id="n-tasks"></span></button>
     <button id="nav-offers" data-view="offers">Offers &amp; admin <span class="n" id="n-offers"></span></button>
     <button id="nav-learning" data-view="learning">Learning &amp; improvement</button>
+    <button id="nav-filters" data-view="filters">Filters</button>
+    <button id="nav-ats" data-view="ats">ATS optimizer</button>
     <button id="nav-backup" data-wiz="gbackup" type="button">Backup &amp; restore</button>
     <button id="nav-kits" data-wiz="gkits" type="button">Kit folder</button>
     <button id="nav-profile" data-wiz="gprofile">Profile <span class="n flag" id="n-profile" hidden></span></button>
@@ -234,6 +236,14 @@ a.btn{text-decoration:none}
     <div id="view-learning" hidden style="display:grid;gap:22px">
       <header><h1>Learning &amp; improvement</h1><div class="sub" id="learn-sub">What your search history says to fix, and how.</div></header>
       <div id="learn-body"></div>
+    </div>
+    <div id="view-filters" hidden style="display:grid;gap:22px">
+      <header><h1>Filters</h1><div class="sub">Why roles failed your rules, what you can override, and the rules themselves.</div></header>
+      <div id="filters-body"></div>
+    </div>
+    <div id="view-ats" hidden style="display:grid;gap:22px">
+      <header><h1>ATS optimizer</h1><div class="sub">Raise each kit's estimated score with keywords that are true for you. Scores stay here, never in the kit files.</div></header>
+      <div id="ats-body"></div>
     </div>
     <div id="view-offers" hidden style="display:grid;gap:22px">
       <header><h1>Offers &amp; admin</h1><div class="sub" id="offers-sub">Your numbers, your call.</div></header>
@@ -581,7 +591,10 @@ function renderMode(){
   el.innerHTML = `<div class="row"><span class="badge">${esc(MODE.label)}</span>` +
     `<button class="btn" id="mode-up">${MODE.next ? 'Upgrade to ' + esc(MODE.next.label) : 'Change mode'}</button>` + `</div>` +
     (MODE.ai_missing ? `<div role="alert" style="color:var(--bad,#b00)"><b>No AI is connected yet.</b> ${esc(MODE.label)} mode needs one. <button class="btn" id="mode-ai">Connect an AI</button></div>` : '') +
-    (MODE.usage ? `<div>AI calls today: ${esc(MODE.usage.day_used)} of ${esc(MODE.usage.day_cap)} (${esc(MODE.usage.run_cap)} per run)</div>` : '') +
+    (MODE.usage ? `<div>AI calls today: ${esc(MODE.usage.day_used)} of ${esc(MODE.usage.day_cap)} (${esc(MODE.usage.run_cap)} per run)</div>` +
+      `<div class="row" style="flex-wrap:wrap;gap:8px"><label>Most AI calls per run <input type="number" id="cap-run" min="1" max="500" value="${esc(MODE.usage.run_cap)}" style="width:5em"></label>` +
+      `<label>per day <input type="number" id="cap-day" min="1" max="2000" value="${esc(MODE.usage.day_cap)}" style="width:5em"></label>` +
+      `<button class="btn" id="cap-save">Save limits</button><span id="cap-msg" role="status"></span></div>` : '') +
     list('Switched off in this mode', MODE.off, x => `<li>${esc(x.label)}: ${esc(x.reason)}</li>`) +
     list('Starts when you ask', MODE.on_request, x => `<li>${esc(x.label)} (${esc(x.how)})</li>`) +
     list('Coming later', MODE.later, x => `<li>${esc(x.label)}</li>`) +
@@ -591,6 +604,16 @@ async function pollMode(){
   try { const r = await fetch('/mode', {cache: 'no-store'}); const m = await r.json(); if (JSON.stringify(m) !== JSON.stringify(MODE)) { MODE = m; renderMode(); } } catch (e) {}
 }
 document.addEventListener('click', e => { if (e.target.id === 'mode-up') wizModes(true); if (e.target.id === 'mode-ai') wizAi('modes'); });
+document.addEventListener('click', async e => {
+  if (e.target.id !== 'cap-save') return;
+  const body = {max_calls_per_run: parseInt($('cap-run').value, 10), max_calls_per_day: parseInt($('cap-day').value, 10)};
+  try {
+    const r = await fetch('/budget', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    const j = await r.json();
+    if (r.ok) { MODE = null; await pollMode(); }          // the panel redraws, so write the message into the new one
+    $('cap-msg').textContent = r.ok ? 'Saved. The next run uses these limits.' : (j.error || 'Not saved.');
+  } catch (err) { $('cap-msg').textContent = 'Not saved: the dashboard did not answer.'; }
+});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pollMode(); });
 pollMode(); setInterval(() => { if (!document.hidden) pollMode(); }, 3000);
 
@@ -1015,11 +1038,13 @@ function openTile(go){
   filter = go; renderBoard();
 }
 function show(v){
-  ['today','week','board','people','tasks','offers','learning'].forEach(x => { $('view-' + x).hidden = x !== v; const b = $('nav-' + x); if (x === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  ['today','week','board','people','tasks','offers','learning','filters','ats'].forEach(x => { $('view-' + x).hidden = x !== v; const b = $('nav-' + x); if (x === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   if (v === 'learning') loadLearning();
+  if (v === 'filters') loadFilters();
+  if (v === 'ats') loadAts();
 }
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tile],#addrole-open,#runnow,[data-untraced],[data-addrole],[data-posting-go],[data-posting],[data-dlurl],#t-add,#fab,#ask,[data-gate],[data-learned],[data-add-include],[data-learned-list],[data-learned-levels],[data-newtask],[data-tdone],[data-tsnooze],[data-tdel],#o-save,#r-save,[data-applyedit],[data-oarch],[data-rask],[data-rdel],[data-adone],[data-touch],[data-snooze],[data-archive],[data-nudgeoff],[data-nudgeon],[data-bseen],[data-rseen],[data-dl],[data-openkit],[data-review],[data-cover],[data-cseen],[data-cdraft],#c-add,[data-view],[data-act],[data-open],[data-filter],[data-why-for],[data-why],[data-why-other],[data-build],[data-done],[data-prep],[data-fu],#close,#fu-go,#fu-copy');
+  const t = e.target.closest('[data-tile],#addrole-open,#runnow,[data-untraced],[data-addrole],[data-posting-go],[data-posting],[data-dlurl],#t-add,#fab,#ask,[data-gate],[data-fpost],[data-frules],[data-fgate],[data-ftab],[data-learned],[data-add-include],[data-learned-list],[data-learned-levels],[data-newtask],[data-tdone],[data-tsnooze],[data-tdel],#o-save,#r-save,[data-applyedit],[data-oarch],[data-rask],[data-rdel],[data-adone],[data-touch],[data-snooze],[data-archive],[data-nudgeoff],[data-nudgeon],[data-bseen],[data-rseen],[data-dl],[data-openkit],[data-review],[data-cover],[data-cseen],[data-cdraft],#c-add,[data-view],[data-act],[data-open],[data-filter],[data-why-for],[data-why],[data-why-other],[data-build],[data-done],[data-prep],[data-fu],#close,#fu-go,#fu-copy');
   if (!t) { if (e.target === $('drawer')) closeDrawer(); return; }
   if (t.dataset.untraced !== undefined) { const r = byKey(t.dataset.key); const c = r && (((KIDX[r.key] || {}).unsupported) || [])[+t.dataset.untraced]; if (c) { try { localStorage.setItem(untracedKey(r, c), t.checked ? '1' : '0'); } catch (err) {} openRole(r.key); } return; }
   if (t.id === 'addrole-open') return openAddRole();
@@ -1027,6 +1052,10 @@ document.addEventListener('click', e => {
   if (t.dataset.addrole !== undefined) return addRole(t.dataset.addrole === '1');
   if (t.dataset.tile) return openTile(t.dataset.tile);
   if (t.dataset.view) return show(t.dataset.view);
+  if (t.dataset.ftab) { FTAB = t.dataset.ftab; return renderFilters(); }
+  if (t.dataset.fpost) { e.stopPropagation(); return filtersPost({action: t.dataset.fpost, term: t.dataset.term, id: t.dataset.term}).then(j => j && renderFilters()); }
+  if (t.dataset.frules) { e.stopPropagation(); return saveFilterRules(); }
+  if (t.dataset.fgate) { e.stopPropagation(); gateAct(t.dataset.fgate, t.dataset.key); setTimeout(loadFilters, 800); return; }
   if (t.dataset.gate) { e.stopPropagation(); return gateAct(t.dataset.gate, t.dataset.key); }
   if (t.dataset.touch) return updContact(t.dataset.touch, {last_touch: todayISO(), snooze_until: null}, 'Marked touched today');
   if (t.dataset.snooze) return updContact(t.dataset.snooze, {snooze_until: addDays(todayISO(), 7)}, 'Snoozed 1 week');
@@ -1188,6 +1217,177 @@ async function loadLearning(){
   renderCoach();
   loadLearned();
 }
+
+
+// Filters page: failed roles grouped by reason, override per role, simple rule editor, Hidden (Not a Match) tab. Data: GET/POST /filters.
+let FILTERS = null, FTAB = 'failed';
+async function filtersPost(body){
+  try { const r = await fetch('/filters', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); const j = await r.json(); if (!r.ok) throw new Error(j.error); FILTERS = j; return j; }
+  catch (e) { toast('Could not save: ' + e.message); return null; }
+}
+async function loadFilters(){
+  try { FILTERS = await (await fetch('/filters')).json(); } catch (e) { $('filters-body').innerHTML = '<div class="empty">Could not load filters.</div>'; return; }
+  renderFilters();
+}
+const GATE_LABEL = {pay: 'Pay below your floor', location: 'Location', work_auth: 'Work authorization', relevance: 'Relevance', learned: 'Learned word', level: 'Level too far from yours', ai: 'AI suggestion', excluded_word: 'Excluded word in title', other: 'Other'};
+function filterRole(r, hidden){
+  return '<div class="gitem"><h3>' + esc(r.title) + '</h3><div class="meta">' + esc([r.company, r.location, r.source, r.found].filter(Boolean).join(' · ')) + '</div>'
+    + '<div class="actions">' + (hidden ? '<button class="btn" data-fpost="unhide" data-term="' + esc(r.id) + '">Unhide</button>'
+      : '<button class="btn good" data-fgate="gate_apply" data-key="' + esc(r.key) + '">Apply anyway</button><button class="btn" data-fgate="gate_later" data-key="' + esc(r.key) + '">Decide later</button><button class="btn bad" data-fgate="gate_skip" data-key="' + esc(r.key) + '">Not applying</button>')
+    + (r.link ? '<a class="btn" href="' + esc(r.link) + '" target="_blank" rel="noopener">Posting</a>' : '') + '</div></div>';
+}
+function renderFilters(){
+  const d = FILTERS, f = d.failed, ru = d.rules;
+  const tab = (id, label) => '<button class="chip" data-ftab="' + id + '" aria-pressed="' + (FTAB === id) + '">' + label + '</button>';
+  let body = '';
+  if (FTAB === 'failed') {
+    body = f.groups.length ? f.groups.map(g => '<details class="box"><summary><strong>' + esc(GATE_LABEL[g.kind] || g.kind) + (g.term ? ': ' + esc(g.term) : '') + '</strong> (' + g.count + ')</summary>'
+      + '<p class="note">' + esc(g.sample) + '</p>'
+      + (g.term ? '<div class="actions"><button class="btn" data-fpost="forget" data-term="' + esc(g.term) + '" title="Stops this word from failing roles">Forget this word</button></div>' : '')
+      + g.roles.map(r => filterRole(r, false)).join('') + '</details>').join('') : '<div class="empty">Nothing is waiting in Failed your rules.</div>';
+    body = '<p class="note">' + f.total + ' role(s) failed. A role with two reasons shows under both.</p>' + body;
+  } else if (FTAB === 'hidden') {
+    body = d.hidden.length ? d.hidden.map(r => filterRole(r, true)).join('') : '<div class="empty">No roles hidden as Not a Match.</div>';
+  } else {
+    body = '<div class="box"><p class="note">Pay and location rules. Work-authorization routes are kept as they are; edit them in Setup.</p>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">'
+      + '<label>Currency<input id="fr-cur" value="' + esc(ru.currency) + '"></label>'
+      + '<label>Salary floor<input id="fr-sal" value="' + esc(ru.floor_salary == null ? '' : ru.floor_salary) + '"></label>'
+      + '<label>Hourly floor<input id="fr-hr" value="' + esc(ru.floor_hourly == null ? '' : ru.floor_hourly) + '"></label>'
+      + '<label>Flag within (fraction below floor)<input id="fr-fw" value="' + esc(ru.flag_within || 0) + '"></label>'
+      + '<label>Home country<input id="fr-home" value="' + esc(ru.home_country) + '"></label>'
+      + '<label>Remote countries (comma list)<input id="fr-rem" value="' + esc((ru.remote_countries || []).join(', ')) + '"></label>'
+      + '<label>Onsite regions (comma list)<input id="fr-on" value="' + esc((ru.onsite_regions || []).join(', ')) + '"></label></div>'
+      + '<div class="actions" style="margin-top:8px"><button class="btn primary" data-frules="1">Save rules</button></div></div>';
+  }
+  $('filters-body').innerHTML = '<div class="chips">' + tab('failed', 'Failed (' + f.total + ')') + tab('hidden', 'Hidden (' + d.hidden.length + ')') + tab('rules', 'Rules') + '</div>' + body;
+}
+function saveFilterRules(){
+  const list = id => $(id).value.split(',').map(x => x.trim()).filter(Boolean);
+  const rules = {...FILTERS.rules, currency: $('fr-cur').value.trim(), floor_salary: $('fr-sal').value.trim(), floor_hourly: $('fr-hr').value.trim(),
+    flag_within: $('fr-fw').value.trim(), home_country: $('fr-home').value.trim(), remote_countries: list('fr-rem'), onsite_regions: list('fr-on')};
+  filtersPost({action: 'rules', rules}).then(j => { if (j) { toast('Saved'); renderFilters(); } });
+}
+
+// ATS optimizer (PLAN D7/D8): per-kit breakdown and what-if, a Have / Related / No answer per missing keyword, the skill
+// inventory and proposals mined from past resumes. Data: GET/POST /ats and POST /skills. Scores never go into kit files.
+let ATS = null, ATAB = 'common', ATS_LOW = true, ATS_SHOW = 25;
+const ATS_WHATIF = new Set();
+const ATS_STATE = {open: 'Not answered', backed: 'In your profile', have: 'You have it', adjacent: 'Related, confirmed true', no: 'Not true for you'};
+async function atsPost(url, body){
+  try { const r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}); const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; }
+  catch (e) { toast('Could not save: ' + e.message); return null; }
+}
+async function loadAts(){
+  try { ATS = await (await fetch('/ats')).json(); } catch (e) { $('ats-body').innerHTML = '<div class="empty">Could not load the ATS optimizer.</div>'; return; }
+  renderAts();
+}
+// Same formula as cc/optimizer.whatif: only the keyword part moves.
+function atsWhatIf(k, extra){
+  const [m, t] = k.kw; if (!t) return k.score;
+  return Math.round(k.score + ATS.kw_max * (Math.min(t, m + Math.max(0, extra)) - m) / t);
+}
+const atsId = term => 'ae-' + term.replace(/[^a-z0-9]+/g, '-');
+function atsAnswer(term, state){
+  const id = atsId(term);
+  if (state === 'open') return '<div class="actions" style="align-items:center;flex-wrap:wrap">'
+    + '<input id="' + id + '" maxlength="300" placeholder="Evidence: where you used it (required)" style="flex:1;min-width:200px">'
+    + '<button class="btn good" data-ats="have" data-term="' + esc(term) + '" title="You have this skill; it can go into kits as written">Have</button>'
+    + '<label class="note" style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="' + id + '-true"> This is true</label>'
+    + '<button class="btn" data-ats="adjacent" data-term="' + esc(term) + '" title="You have closely related experience; needs This is true ticked">Related</button>'
+    + '<button class="btn bad" data-ats="no" data-term="' + esc(term) + '" title="Not true for you: never added, never asked again">No</button></div>';
+  if (state === 'backed') return '<span class="note">Already backed by your profile. Rebuild the kit to work it in.</span>';
+  return '<div class="actions"><button class="btn" data-ats="undo" data-term="' + esc(term) + '">Undo</button></div>';
+}
+function atsTermRow(term, state, extra){
+  return '<div class="item"><div class="top"><span class="t">' + esc(term) + '</span> <span class="tag' + (state === 'open' ? ' ats-low' : state === 'no' ? '' : ' ats-ok') + '">' + ATS_STATE[state] + '</span>' + (extra || '') + '</div>' + atsAnswer(term, state) + '</div>';
+}
+function atsCommon(kits){
+  const n = {}, st = {};
+  kits.forEach(k => k.missing.forEach(x => { n[x.term] = (n[x.term] || 0) + 1; st[x.term] = x.state; }));
+  const open = Object.keys(n).filter(t => st[t] === 'open').sort((a, b) => n[b] - n[a] || a.localeCompare(b));
+  const done = Object.keys(n).filter(t => st[t] !== 'open' && st[t] !== 'backed').sort();
+  return '<p class="note">Keywords your postings ask for that your resumes lack, most frequent first. One answer applies to every kit. Answer Have or Related only when it is true; the evidence goes into your skill inventory and makes the keyword usable by tailoring.</p>'
+    + (open.length ? '<div class="list">' + open.slice(0, 60).map(t => atsTermRow(t, 'open', ' <span class="note">in ' + n[t] + ' kit' + (n[t] === 1 ? '' : 's') + '</span>')).join('') + '</div>' : '<div class="empty">Every missing keyword has an answer.</div>')
+    + (done.length ? '<details class="box"><summary>Answered (' + done.length + ')</summary><div class="list">' + done.map(t => atsTermRow(t, st[t])).join('') + '</div></details>' : '');
+}
+function atsKit(k){
+  const P = k.parts || {}, open = k.missing.filter(x => x.state === 'open'), wi = open.filter(x => ATS_WHATIF.has(k.role + '|' + x.term)).length;
+  const ready = k.missing.filter(x => ['have', 'adjacent', 'backed'].includes(x.state)).length;
+  const yrs = Array.isArray(k.years) ? k.years : null;
+  return '<details class="box" data-atskit="' + esc(k.role) + '"><summary><strong>' + esc(k.title || k.role) + '</strong>' + (k.company ? ' · ' + esc(k.company) : '')
+    + ' <span class="tag ' + (k.score >= ATS.pass_score ? 'ats-ok' : 'ats-low') + '">ATS ' + Math.round(k.score) + '</span>'
+    + (k.projected > k.score ? ' <span class="note">up to about ' + k.projected + ' after a rebuild</span>' : '') + '</summary>'
+    + '<ul>' + Object.keys(ATSPART).filter(p => Array.isArray(P[p])).map(p => '<li>' + ATSPART[p] + ': ' + esc(P[p][0]) + ' of ' + esc(P[p][1])
+      + (p === 'title' && k.title_on_resume === false ? ' (the exact job title is not on the resume)' : '')
+      + (p === 'years' && yrs && yrs[1] > yrs[0] ? ' (posting asks ' + esc(yrs[1]) + ', resume shows ' + esc(yrs[0]) + ')' : '') + '</li>').join('') + '</ul>'
+    + (k.format_issues.length ? '<p class="note"><b>Format:</b> ' + k.format_issues.map(esc).join('; ') + '</p>' : '')
+    + '<p class="note">Keywords: ' + k.kw[0] + ' of ' + k.kw[1] + ' on the resume' + (k.estimated_counts ? ' (estimate from an older score)' : '') + '. '
+    + ready + ' more backed keyword' + (ready === 1 ? '' : 's') + ' can be worked in by a rebuild (estimate ' + k.projected + ').'
+    + (wi ? ' <b>What-if:</b> with ' + wi + ' more ticked below, about ' + atsWhatIf(k, ready + wi) + '.' : '') + '</p>'
+    + (k.missing.length ? '<div class="list">' + k.missing.map(x => atsTermRow(x.term, x.state, x.state === 'open'
+      ? ' <label class="note" title="Estimate only; nothing is saved"><input type="checkbox" data-atswi="' + esc(k.role + '|' + x.term) + '"' + (ATS_WHATIF.has(k.role + '|' + x.term) ? ' checked' : '') + '> what if</label>' : '')).join('') + '</div>' : '')
+    + '<div class="actions">' + (k.has_posting ? '<button class="btn primary" data-build="' + esc(k.key) + '" title="Builds again from your profile and skill inventory. The kit being replaced is kept in its previous folder.">Rebuild kit</button>' : '<span class="note">No saved job description: open the role on the Job board to add one before rebuilding.</span>') + '</div>'
+    + '<p class="note">The score is an estimate kept here only, never in the kit files.</p></details>';
+}
+function atsInventory(s){
+  const inv = s.inventory.length ? '<div class="list">' + s.inventory.map(x => '<div class="item"><div class="top"><span class="t">' + esc(x.term) + '</span> <span class="tag ats-ok">' + (x.kind === 'adjacent' ? 'Related' : 'Have') + '</span>'
+    + '<button class="btn" data-skill="remove" data-term="' + esc(x.term) + '">Remove</button></div><div class="d">' + esc(x.evidence) + ' <span class="note">(' + esc(x.source) + ', ' + esc(x.added) + ')</span></div></div>').join('') + '</div>'
+    : '<div class="empty">Nothing confirmed yet. Answer keywords on the other tabs, or add one here.</div>';
+  return '<p class="note">Skills you confirmed are true, each with evidence. Tailoring, reviews and cover letters treat these as part of your profile.</p>' + inv
+    + '<div class="box"><h2>Add a skill</h2><div class="form"><input id="sk-term" maxlength="60" placeholder="Skill or keyword"><input id="sk-ev" maxlength="300" placeholder="Evidence: where you used it (required)">'
+    + '<select id="sk-kind"><option value="have">I have it</option><option value="adjacent">Related experience (true)</option></select></div>'
+    + '<div class="actions"><button class="btn primary" data-skill="add">Add</button></div></div>';
+}
+function atsProposals(s){
+  const src = p => (p.sources || []).map(x => '<li>' + esc(x.snippet) + ' <span class="note">' + esc(x.file) + '</span></li>').join('');
+  const list = s.proposals.length ? '<div class="list">' + s.proposals.map(p => '<div class="item"><div class="top"><span class="t">' + esc(p.term) + '</span> <span class="note">in ' + esc(p.files) + ' file' + (p.files === 1 ? '' : 's') + '</span>'
+    + '<button class="btn good" data-skill="accept" data-term="' + esc(p.term) + '" title="True: add it with the first line below as evidence">Have it</button><button class="btn bad" data-skill="dismiss" data-term="' + esc(p.term) + '">Not true</button></div><ul class="note">' + src(p) + '</ul></div>').join('') + '</div>'
+    : '<div class="empty">No proposals waiting.</div>';
+  return '<p class="note">Skills found in your past resumes, kits and cover letters that your profile does not mention yet. Nothing is added until you say it is true.</p>'
+    + '<div class="actions"><button class="btn primary" data-skill="mine" id="sk-mine">Scan past resumes</button><span class="note" id="sk-mine-note">Reads every resume and kit file; with a few hundred files this takes about a minute.</span></div>' + list
+    + (s.dismissed.length ? '<details class="box"><summary>Marked not true (' + s.dismissed.length + ')</summary><div class="list">' + s.dismissed.map(p => '<div class="item"><div class="top"><span class="t">' + esc(p.term) + '</span><button class="btn" data-skill="undismiss" data-term="' + esc(p.term) + '">Restore</button></div></div>').join('') + '</div></details>' : '');
+}
+function renderAts(){
+  if (!ATS) return;
+  const s = ATS.skills, kits = ATS.kits.filter(k => !ATS_LOW || k.score < ATS.pass_score);
+  const tab = (id, label) => '<button class="chip" data-atab="' + id + '" aria-pressed="' + (ATAB === id) + '">' + label + '</button>';
+  const opened = new Set([...document.querySelectorAll('#ats-body details[open][data-atskit]')].map(d => d.dataset.atskit));
+  let body;
+  if (ATAB === 'common') body = atsCommon(kits);
+  else if (ATAB === 'kits') body = '<label class="note"><input type="checkbox" data-atslow' + (ATS_LOW ? ' checked' : '') + '> Only kits below ' + ATS.pass_score + '</label>'
+    + (kits.length ? kits.slice(0, ATS_SHOW).map(atsKit).join('') + (kits.length > ATS_SHOW ? '<div class="actions"><button class="btn" data-atsmore>Show more (' + (kits.length - ATS_SHOW) + ')</button></div>' : '') : '<div class="empty">No scored kits' + (ATS_LOW ? ' below ' + ATS.pass_score : '') + '.</div>');
+  else if (ATAB === 'inventory') body = atsInventory(s);
+  else body = atsProposals(s);
+  $('ats-body').innerHTML = '<div class="chips">' + tab('common', 'Missing keywords') + tab('kits', 'Kits (' + kits.length + ')') + tab('inventory', 'Skill inventory (' + s.inventory.length + ')') + tab('proposals', 'From past resumes (' + s.proposals.length + ')') + '</div>' + body;
+  opened.forEach(r => { const d = document.querySelector('#ats-body details[data-atskit="' + CSS.escape(r) + '"]'); if (d) d.open = true; });
+}
+document.addEventListener('click', async e => {
+  const t = e.target.closest('#ats-body [data-atab],#ats-body [data-ats],#ats-body [data-skill],#ats-body [data-atsmore]');
+  if (!t) return;
+  if (t.dataset.atab) { ATAB = t.dataset.atab; return renderAts(); }
+  if (t.dataset.atsmore !== undefined) { ATS_SHOW += 25; return renderAts(); }
+  if (t.dataset.ats) {
+    const term = t.dataset.term, id = atsId(term), box = t.closest('.item');
+    const ev = ((box && box.querySelector('#' + CSS.escape(id))) || {}).value || '', ok = ((box && box.querySelector('#' + CSS.escape(id + '-true'))) || {}).checked === true;
+    if ((t.dataset.ats === 'have' || t.dataset.ats === 'adjacent') && !ev.trim()) return toast('Add evidence first: where you used it.');
+    if (t.dataset.ats === 'adjacent' && !ok) return toast('Tick "This is true" first. Related wording goes into a kit only when it is true.');
+    const j = await atsPost('/ats', {action: t.dataset.ats, term, evidence: ev, confirm: ok});
+    if (j) { ATS = j; renderAts(); }
+    return;
+  }
+  const act = t.dataset.skill;
+  if (act === 'mine') { t.disabled = true; $('sk-mine-note').textContent = 'Reading your files. This takes about a minute; keep this page open.'; }
+  const body = act === 'add' ? {action: 'add', term: $('sk-term').value, evidence: $('sk-ev').value, kind: $('sk-kind').value} : {action: act, term: t.dataset.term};
+  const j = await atsPost('/skills', body);
+  if (j && j.mined) toast('Read ' + j.mined.read + ' file(s); ' + j.mined.new + ' new proposal(s).' + (j.mined.failed.length ? ' ' + j.mined.failed.length + ' could not be read.' : ''));
+  if (j) loadAts(); else if (act === 'mine') { t.disabled = false; }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.matches('#ats-body [data-atswi]')) { if (t.checked) ATS_WHATIF.add(t.dataset.atswi); else ATS_WHATIF.delete(t.dataset.atswi); renderAts(); }
+  if (t.matches('#ats-body [data-atslow]')) { ATS_LOW = t.checked; renderAts(); }
+});
 
 // "What the system learned": offline rules from your choices, editable word lists, and the optional AI toggle.
 async function learnedPost(body){

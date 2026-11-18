@@ -70,18 +70,21 @@ def gate(p, config, rel=None):
     gates = {"pay": score.gate_pay(pay_of(p.get("pay_text")), config["pay"]),
              "location": score.gate_location(loc, CHANNEL, config["location"], routes),
              "work_auth": score.gate_work_auth(post, config["location"], routes)}
-    if rel is not None:
-        why = relevance.check(p.get("title", ""), *rel)
+    if rel is not None and rel[0].get("v2"):
+        a = relevance.assess(p.get("title", ""), *rel)
+        gates["relevance"] = {"verdict": {"keep": "PASS", "drop": "FAIL"}.get(a["verdict"], "FLAG"), "reason": a["reason"]}
+    elif rel is not None:
+        why = relevance.check(p.get("title", ""), *rel[:2])
         gates["relevance"] = {"verdict": "FAIL" if why else "PASS", "reason": why or "title relevant"}
     fails = [f"{n}: {g['reason']}" for n, g in gates.items() if g["verdict"] == "FAIL"]
     flags = [f"{n}: {g['reason']}" for n, g in gates.items() if g["verdict"] == "FLAG"]
     return gates, fails, flags
 
 
-def regate(conn, config):
+def regate(conn, config, profile_text=""):
     """Re-run the gates on New roles and on roles waiting in Failed your rules (never on roles the user already decided).
     A New role that now fails goes to review with the reason; a waiting role that no longer fails returns to New."""
-    rel = (relevance.settings(conn), learned.model(conn))
+    rel = (relevance.settings(conn), learned.model(conn), terms_of(profile_text))
     to_review, to_new = [], []
     for d in store.list_docs(conn, "roles"):
         r = d["data"]
@@ -101,6 +104,7 @@ def regate(conn, config):
         else:
             continue
         r["gates"] = {n: g["verdict"] for n, g in gates.items()}
+        r["relevance_why"] = (gates.get("relevance") or {}).get("reason", "")
         store.set_doc(conn, "roles", d["id"], r, if_version=d["version"], by="regate")
     return {"to_review": to_review, "to_new": to_new}
 
@@ -159,8 +163,8 @@ def intake(conn, config, profile_text, postings, today=None):
                 for d in docs]
     by_key = {(d["data"].get("key") or d["id"]): d for d in docs}
     days, now = reapply_days(config), dt.date.fromisoformat(today)
-    rel = (relevance.settings(conn), learned.model(conn))
-    terms = terms_of(profile_text) | set(relevance.terms(" ".join(rel[0]["targets"])))
+    rel = (relevance.settings(conn), learned.model(conn), terms_of(profile_text))
+    terms = rel[2] | set(relevance.terms(" ".join(rel[0]["targets"])))
     out = {"added": [], "skipped": [], "duplicates": 0, "held": [], "reposts": []}
     feeds = {}                                         # per source: what happened to what it sent (learned.record_feeds)
     def tally(p, what, gate_name=""):
@@ -207,6 +211,7 @@ def intake(conn, config, profile_text, postings, today=None):
                 "decision": "", "source": str(p.get("source") or "board")[:30], "channel": CHANNEL, "link": link, "ats": p.get("ats", ""),
                 "label": keyword_label(p, terms), "label_mode": "no-ai",
                 "gates": {n: g["verdict"] for n, g in gates.items()}, "flags": flags,
+                "relevance_why": (gates.get("relevance") or {}).get("reason", ""),
                 "reason_or_gaps": "; ".join(fails or flags)}
         if repost_of:
             data.update(reposted_of=repost_of, repost_note=f"You applied to this role before ({repost_of.split('|')[0]}); it looks reposted.")

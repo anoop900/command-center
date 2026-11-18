@@ -4,7 +4,7 @@ import json
 import shutil
 from datetime import datetime
 
-from .. import config, store
+from .. import config, skills, store
 from . import ats_check, pipeline, qc_check
 
 
@@ -13,6 +13,7 @@ def run(conn, home=None):
     home = home or config.data_dir()
     kits = config.kits_dir(home)
     profile = (home / "Candidate_Profile.md").read_text(encoding="utf-8") if (home / "Candidate_Profile.md").is_file() else ""
+    profile += skills.backed_text(conn)
     backup = home / "backups" / ("kitjson-" + datetime.now().strftime("%Y%m%d-%H%M%S"))
     out = {"scored": 0, "stripped": 0, "skipped": [], "backup": ""}
     for kj in sorted(kits.glob("**/kit.json")) if kits.is_dir() else []:

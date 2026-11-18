@@ -525,6 +525,18 @@ class Http(unittest.TestCase):
         self.assertEqual(st, 200)
         self.assertEqual(blob[:2], b"PK")
 
+    def test_ai_call_caps_are_the_users_setting(self):
+        self.assertEqual(self.call("POST", "/budget", {"max_calls_per_run": 40, "max_calls_per_day": 120})[0], 200)
+        b = config.load(self.d / "config.toml").budget
+        self.assertEqual((b.max_calls_per_run, b.max_calls_per_day), (40, 120))
+        self.assertIn('host = "imap.real.test"', (self.d / "config.toml").read_text(encoding="utf-8"))   # other sections kept
+        for body in ({}, [], None, {"max_calls_per_run": "40", "max_calls_per_day": 120}, {"max_calls_per_run": True, "max_calls_per_day": 120},
+                     {"max_calls_per_run": 0, "max_calls_per_day": 120}, {"max_calls_per_run": 50, "max_calls_per_day": 10},
+                     {"max_calls_per_run": 40, "max_calls_per_day": 10 ** 9}, {"max_calls_per_run": 4.5, "max_calls_per_day": 120}):
+            self.assertEqual(self.call("POST", "/budget", body)[0], 400, body)
+        self.assertEqual(self.call("POST", "/budget", raw="nope")[0], 400)
+        self.assertEqual(config.load(self.d / "config.toml").budget.max_calls_per_day, 120)
+
     def test_list_reports_folders_and_settings_and_settings_save_and_prune(self):
         st, lst = self.call("GET", "/backup/list")
         self.assertEqual((lst["settings"]["keep"], lst["settings"]["keep_manual"]), (7, 20))

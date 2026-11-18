@@ -3,7 +3,7 @@ import datetime as dt
 
 from cc import coach, kitlink, kitprefs, learned, store, tracker
 from cc.ingest import fetchposting
-from cc.runs import actions, autokits, backfill, board, contacts, intake, mailflow, reviews, triage
+from cc.runs import actions, autokits, backfill, board, contacts, intake, judge, mailflow, reviews, triage
 
 NO_SCORING = "Gates are not set up (scoring.toml missing), so new postings were not added."
 
@@ -49,12 +49,16 @@ def run(conn, mode="morning", today=None, now=None, msgs=None, ics_text=None, sc
         if res["held"] or res["reposts"]:
             notes.append(_note(f"{len(res['held'])} role(s) you already applied to were kept off the board; "
                                f"{len(res['reposts'])} came back as reposts"))
-        added += len(intake.regate(conn, score_cfg)["to_new"])    # roles whose only failure was junk text or a forgotten rule
+        added += len(intake.regate(conn, score_cfg, profile)["to_new"])    # roles whose only failure was junk text or a forgotten rule
         if mode == "morning":
             try:
                 notes += backfill.run(conn, today, (lambda u: fetchposting.fetch(u, lambda x: opener(x, None))) if opener else None)
             except Exception as e:  # a bonus step; it must not stop the board
                 notes.append(_note(f"Fetching job descriptions failed: {type(e).__name__}"))
+        try:
+            notes += judge.run(conn, ai, profile, today)     # borderline titles only; does nothing with relevance v2 off
+        except Exception as e:  # a bonus step; it must not stop the board
+            notes.append(_note(f"AI check of borderline roles failed: {type(e).__name__}"))
         if mode == "morning" and ai and files:
             try:
                 notes += autokits.run(conn, score_cfg, profile, ai, *files)

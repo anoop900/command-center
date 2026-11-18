@@ -24,6 +24,12 @@ def gate_open(r):
     return r["gate_review"] in GATE_OPEN
 
 
+def is_hidden(r):
+    """A role the user marked Not a Match: off the board and out of Failed your rules, still stored for learning."""
+    s = str(r.get("status", "")).lower()
+    return s.startswith("skipped") and "not a match" in s
+
+
 def stage(r):
     s, dec = r.get("status", "").lower(), r.get("decision", "").lower()
     if "offer" in s or "interview" in s:
@@ -64,6 +70,8 @@ def max_age(cfg):
 def build_roles(rows, extra, today, rank=None, age=DEFAULT_MAX_AGE):
     roles = []
     for r in rows:
+        if is_hidden(r):
+            continue
         st = stage(r)
         if not st:
             continue

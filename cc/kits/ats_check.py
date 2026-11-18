@@ -71,7 +71,10 @@ BOILER = {"experience", "knowledge", "proven", "strong", "excellent", "demonstra
           "proficiency", "understanding", "expertise", "hands", "minimum", "lead", "leads", "manage", "build", "design",
           "develop", "drive", "ensure", "support", "own", "partner", "deliver", "define", "collaborate", "previous",
           "solid", "deep", "good", "great", "nice", "bonus", "must", "ideally", "preferably", "senior", "junior",
-          "exceptional", "expert", "less"}
+          "exceptional", "expert", "less", "acts", "act", "graduate", "manages", "managing", "extensive", "extensively",
+          "leading", "builds", "designs", "develops", "drives", "ensures", "supports", "owns", "delivers", "defines",
+          "works", "helps", "provides", "responsible", "successful", "ability", "relevant", "similar", "various",
+          "familiar", "proficient", "requires", "require", "legally", "not", "tools", "hiring", "user", "legal", "talent", "contract", "executive", "multiple", "ideal", "highly", "effective", "effectively", "recent", "current", "key", "additional"}
 NOISE = {"salary", "compensation", "notice", "disclaimer", "benefits", "skills", "employer", "background", "bring", "area",
          "certified", "degree", "doctorate", "desirable", "ca", "us", "usa", "uk", "eu", "on", "bc", "qc", "ab",
          "computer science", "development", "information technology"}
@@ -111,7 +114,7 @@ def posting_terms(posting, company=""):
         for m in CAPS.findall(line):
             w = m.lower()
             ws = w.split()
-            if ws[0] in STOP or ws[0] in BOILER or set(ws) & (co | NOISE) or w in NOISE:
+            if ws[0] in STOP or set(ws) & BOILER or set(ws) & (co | NOISE) or w in NOISE:
                 continue
             terms.add(w)
         terms.update(d.lower().strip() for d in CREDS.findall(line))
@@ -149,12 +152,14 @@ def score(text, posting, profile, title="", company=""):
     total = round(sum(WEIGHTS[k] * frac[k] for k in WEIGHTS))
     return {"score": total, "pass": total >= PASS_SCORE, "parts": parts, "matched": matched[:80], "add": add[:40],
             "gaps": gaps[:40], "format_issues": fmt, "title_on_resume": bool(tl) and tl in low,
-            "years": [have, need]}
+            "years": [have, need], "kw": [len(matched), len(terms)]}
 
 
 def summary(r, retry=None):
     """The compact form stored in the database for the portal (never written into a kit folder)."""
     out = {k: r[k] for k in ("score", "pass", "parts", "add", "gaps", "format_issues", "title_on_resume", "years")}
+    if "kw" in r:
+        out["kw"] = r["kw"]     # [matched, asked] keyword counts: the optimizer's what-if needs them (the lists are capped)
     out["matched"] = r["matched"][:40]
     if retry:
         out["retry"] = retry

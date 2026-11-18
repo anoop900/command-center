@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from .. import ai, config, store
-from .. import kitprefs, relevance
+from .. import kitprefs, relevance, skills
 from ..kits import content as kit_content, cover, pipeline, qc_check
 from ..kits.pipeline import KitError, _read, _slug
 
@@ -41,7 +41,7 @@ def _save(conn, collection, role_id, r):
 def review_role(conn, role_id, posting, mode, runner=ai.none_runner, home=None):
     home = home or config.data_dir()
     prof_path = _load(conn, role_id, posting, home)
-    profile = _read(prof_path, "candidate profile")
+    profile = _read(prof_path, "candidate profile") + skills.backed_text(conn)
     kit = _read(_tailor_path(conn, role_id, home), "kit (run `cc kit` first)")
     inputs = {"posting": posting, "profile": profile, "kit": kit}
     try:
@@ -98,7 +98,7 @@ def apply_review_edit(conn, role_id, index, home=None):
 
 def prep_role(conn, role_id, posting, mode, runner=ai.none_runner, home=None):
     home = home or config.data_dir()
-    profile = _read(_load(conn, role_id, posting, home), "candidate profile")
+    profile = _read(_load(conn, role_id, posting, home), "candidate profile") + skills.backed_text(conn)
     inputs = {"posting": posting, "profile": profile}
     try:
         inputs["stories"] = _read(home / "Story_Bank.md", "story bank")
@@ -110,7 +110,7 @@ def prep_role(conn, role_id, posting, mode, runner=ai.none_runner, home=None):
 def cover_role(conn, role_id, posting, mode, runner=ai.none_runner, home=None):
     """One-page cover letter into the role's kit folder. Only runs on request; pressing again replaces the letter."""
     home = home or config.data_dir()
-    profile = _read(_load(conn, role_id, posting, home), "candidate profile")
+    profile = _read(_load(conn, role_id, posting, home), "candidate profile") + skills.backed_text(conn)
     folder = pipeline.existing_folder(conn, role_id, home)
     if folder is None:
         raise KitError("Build the kit for this role first; the letter is saved in its folder.")
@@ -193,7 +193,7 @@ def outreach_role(conn, role_id, channel, request, theirs, mode, runner=ai.none_
         if v is not None and (not isinstance(v, str) or len(v) > limit):
             raise KitError(f"the {what} must be text of at most {limit} characters")
     r = role["data"]
-    profile = _read(home / "Candidate_Profile.md", "candidate profile")
+    profile = _read(home / "Candidate_Profile.md", "candidate profile") + skills.backed_text(conn)
     facts = [f"Role: {r.get('title', '')} at {r.get('company', '')}", f"Status: {r.get('status', '')}"]
     if r.get("date_applied"):
         facts.append(f"Applied on {r['date_applied']}")

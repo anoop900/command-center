@@ -71,6 +71,39 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.call("POST", "/learned", {"action": "targets", "items": ["Marine Biologist"]})[1]["targets"], ["Marine Biologist"])
         self.assertEqual(self.call("POST", "/learned", {"action": "forget", "term": "oncology"})[1]["forgotten"], ["oncology"])
 
+    def test_filters_endpoint(self):
+        code, v = self.call("GET", "/filters")
+        self.assertEqual((code, v["failed"]["total"], v["hidden"]), (200, 0, []))
+        for bad in ({}, {"action": "x"}, {"action": "forget", "term": 5}, {"action": "unhide", "id": "nope"}, {"action": "rules", "rules": 3}):
+            self.assertEqual(self.call("POST", "/filters", bad)[0], 400, bad)
+        self.assertEqual(self.call("POST", "/filters", {"action": "forget", "term": "x"}, {"Origin": "http://evil.example"})[0], 403)
+        self.assertEqual(self.call("POST", "/filters", {"action": "exclude", "items": ["Oncology"]})[1]["relevance"]["exclude"], ["oncology"])
+
+    def test_skills_endpoint(self):
+        code, v = self.call("GET", "/skills")
+        self.assertEqual((code, v["inventory"], v["proposals"]), (200, [], []))
+        for bad in ({}, {"action": "x"}, {"action": "accept", "term": 5}, {"action": "add", "term": "kubernetes"},
+                    {"action": "dismiss", "term": "nope"}, {"action": "remove", "term": "nope"}, []):
+            self.assertEqual(self.call("POST", "/skills", bad)[0], 400, bad)
+        self.assertEqual(self.call("POST", "/skills", {"action": "mine"}, {"Origin": "http://evil.example"})[0], 403)
+        self.assertEqual(self.call("POST", "/skills", {"action": "mine"})[1]["mined"]["read"], 0)
+        v = self.call("POST", "/skills", {"action": "add", "term": "Terraform", "evidence": "Built modules at Example Co"})[1]
+        self.assertEqual([s["term"] for s in v["inventory"]], ["terraform"])
+
+    def test_ats_endpoint(self):
+        conn = store.connect(self.dir / "commandcenter.db")
+        store.set_doc(conn, "kitindex", "r1", {"key": "r1", "ats": {"score": 60, "parts": {}, "add": [], "gaps": ["terraform"],
+                                                                    "matched": ["azure"], "kw": [1, 2]}})
+        conn.close()
+        code, v = self.call("GET", "/ats")
+        self.assertEqual((code, v["kits"][0]["missing"]), (200, [{"term": "terraform", "state": "open"}]))
+        for bad in ({}, {"action": "x"}, {"action": "have", "term": "terraform"}, {"action": "no", "term": 5}, [],
+                    {"action": "adjacent", "term": "terraform", "evidence": "x"}):
+            self.assertEqual(self.call("POST", "/ats", bad)[0], 400, bad)
+        self.assertEqual(self.call("POST", "/ats", {"action": "no", "term": "terraform"}, {"Origin": "http://evil.example"})[0], 403)
+        v = self.call("POST", "/ats", {"action": "have", "term": "terraform", "evidence": "Built modules"})[1]
+        self.assertEqual((v["kits"][0]["missing"][0]["state"], v["kits"][0]["projected"]), ("have", 83))
+
     def test_binds_loopback_only(self):
         self.assertEqual(self.srv.server_address[0], "127.0.0.1")
 

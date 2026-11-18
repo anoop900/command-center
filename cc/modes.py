@@ -23,6 +23,8 @@ _ROWS = (
      ("browser-capable AI only", "same", "no", "no")),
     ("learning_ai", "Active learning: an AI suggests title terms to avoid (optional, off until you turn it on)", True,
      ("if turned on", "if turned on", "no", "no")),
+    ("relevance_judge", "AI second opinion on borderline titles (only roles the word rules cannot settle)", True,
+     ("auto", "auto", "no", "no")),
     ("form_filler", "Form-filler extension", False, ("yes", "yes", "yes", "yes")),
     ("phone_dashboard", "Phone dashboard", False, ("later", "later", "later", "later")),
 )
@@ -38,6 +40,8 @@ REASONS = {
     ("outreach", "no-ai"): "Needs an AI to write the message in your own words.",
     ("learning_ai", "chat"): "Needs an AI that runs by itself; the offline learning still works.",
     ("learning_ai", "no-ai"): "Needs an AI; the offline learning still works.",
+    ("relevance_judge", "chat"): "Needs an AI that runs by itself; borderline roles stay on your board.",
+    ("relevance_judge", "no-ai"): "Needs an AI; borderline roles stay on your board.",
     ("linkedin_reading", "chat"): "Needs an AI that can browse; a chatbot cannot open LinkedIn for you.",
     ("linkedin_reading", "no-ai"): "Needs an AI that can browse. Alert emails are still read.",
 }

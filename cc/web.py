@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from .rules import job_key
-from . import aiprov, api, assets, jobs, backup, coach, config, drafts, learned, learning, modes, problems, profile, qcrules, resume, rules_cfg, runnow, scheduler, store, thirdparty, wizard
+from . import aiprov, api, assets, jobs, backup, coach, config, drafts, filters, learned, learning, modes, optimizer, problems, profile, qcrules, resume, rules_cfg, runnow, scheduler, skills, store, thirdparty, wizard
 from .ai import RunnerError, budget, features, runners
 from .kits.pipeline import KitError
 from .runs import actions, board
@@ -305,6 +305,24 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._send(200, learned.view(conn, self._jobs()))
             finally:
                 conn.close()
+        if path == "/skills":
+            conn = store.connect(self.db_file)
+            try:
+                return self._send(200, skills.view(conn))
+            finally:
+                conn.close()
+        if path == "/ats":
+            conn = store.connect(self.db_file)
+            try:
+                return self._send(200, optimizer.view(conn, self.cfg_file.parent))
+            finally:
+                conn.close()
+        if path == "/filters":
+            conn = store.connect(self.db_file)
+            try:
+                return self._send(200, filters.view(conn, self.cfg_file.parent, self._jobs()))
+            finally:
+                conn.close()
         if path == "/learning":
             conn = store.connect(self.db_file)
             try:
@@ -482,6 +500,14 @@ class _Handler(BaseHTTPRequestHandler):
             return self._backup(path)
         if path in LEARNED_POSTS:
             return self._learned()
+        if path == "/budget":
+            return self._budget()
+        if path == "/filters":
+            return self._filters()
+        if path == "/skills":
+            return self._skills()
+        if path == "/ats":
+            return self._skills(optimizer.apply)
         if path in COACH_POSTS:
             return self._coach(path)
         if path in IMPORT_OTHER_POSTS:
@@ -507,6 +533,37 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _jobs(self):
         return [j for j in profile.load(self.cfg_file.parent)["jobs"] if j.get("ok")]
+
+    def _skills(self, fn=skills.apply):
+        """/skills body: {action: mine|accept|add|dismiss|undismiss|remove, term?, evidence?, kind?} -> inventory view.
+        /ats body: {action: have|adjacent|no|undo, term, evidence?, confirm?} -> optimizer view."""
+        data = self._body("wizard")
+        if data is None:
+            return
+        conn = store.connect(self.db_file)
+        try:
+            return self._send(200, fn(conn, self.cfg_file.parent, data))
+        except (ValueError, store.Conflict, config.ConfigError) as e:
+            return self._send(400, {"error": str(e)})
+        except sqlite3.Error:
+            return self._send(503, {"error": "database busy"})
+        finally:
+            conn.close()
+
+    def _filters(self):
+        """Body: {action: rules|forget|restore|exclude|include|targets|levels|unhide, ...}. Answers with the whole Filters view."""
+        data = self._body("wizard")
+        if data is None:
+            return
+        conn = store.connect(self.db_file)
+        try:
+            return self._send(200, filters.apply(conn, self.cfg_file.parent, data, self._jobs()))
+        except (ValueError, store.Conflict, config.ConfigError) as e:
+            return self._send(400, {"error": str(e)})
+        except sqlite3.Error:
+            return self._send(503, {"error": "database busy"})
+        finally:
+            conn.close()
 
     def _learned(self):
         """Body: {action: forget|restore|ai|exclude|include|targets|levels, term|on|items}. Changes what is learned, never a hard rule."""
@@ -628,6 +685,22 @@ class _Handler(BaseHTTPRequestHandler):
         except config.ConfigError as e:
             return self._send(400, {"error": str(e)})
         backup.prune(d, keep, km)
+        return self._send(200, {"ok": True})
+
+    def _budget(self):
+        """Body: {max_calls_per_run, max_calls_per_day}. The user's own AI call caps, written to config.toml [budget]."""
+        data = self._body("wizard")
+        if data is None:
+            return
+        run, day = (data.get(k) if isinstance(data, dict) else None for k in ("max_calls_per_run", "max_calls_per_day"))
+        if any(type(v) is not int for v in (run, day)):
+            return self._send(400, {"error": "both caps must be whole numbers"})
+        if not (1 <= run <= 500 and 1 <= day <= 2000 and run <= day):
+            return self._send(400, {"error": "per run must be 1 to 500, per day 1 to 2000, and per run no more than per day"})
+        try:
+            config.set_values(self.cfg_file, "budget", {"max_calls_per_run": run, "max_calls_per_day": day})
+        except config.ConfigError as e:
+            return self._send(400, {"error": str(e)})
         return self._send(200, {"ok": True})
 
     def _backup_open(self, d):

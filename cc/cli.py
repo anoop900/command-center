@@ -5,6 +5,7 @@
   cc diff FOLDER               compare the database with a folder; exit 1 when they differ
   cc export FOLDER [COLL...]   write the database's records as a folder of JSON files
   cc markdown FILE             write the read-only Markdown copy of open roles
+  cc relevance dry-run [--days N] [--json]   compare relevance v1 and v2 on recent roles (read-only)
   cc backup DIR [--keep N]     consistent copy of the database only (default keep 7)
   cc backup create [FILE]      full backup of profile, resumes, kits, settings and data (no passwords or API keys)
   cc backup verify FILE        check a backup is complete and undamaged
@@ -390,6 +391,24 @@ def main(argv=None):
         return 3
 
 
+def _relevance_dry_run(conn, rest):
+    import datetime as dt
+    from .runs import judge
+    days = int(rest[rest.index("--days") + 1]) if "--days" in rest[:-1] and rest[rest.index("--days") + 1].isdigit() else 7
+    prof = config.data_dir() / "Candidate_Profile.md"
+    out = judge.dry_run(conn, prof.read_text(encoding="utf-8") if prof.exists() else "", dt.date.today(), days)
+    if "--json" in rest:
+        print(json.dumps(out, indent=1))
+        return 0
+    print(f"Roles found since {out['since']}: {out['total']}. v1 -> v2 (relevance gate only):")
+    for k, n in out["table"].items():
+        print(f"  {k:<18} {n}")
+    print(f"Would change bucket: {len(out['changed'])}; of those, no other gate fails: {len(out['effective'])}")
+    for x in out["effective"]:
+        print(f"  [{x['old']} -> {x['new']} {x['score']:+d}] {x['company']} | {x['title']} | {x['reason']}")
+    return 0
+
+
 def _dispatch(cmd, rest):
     if cmd == "doctor":
         return _doctor()
@@ -418,6 +437,8 @@ def _dispatch(cmd, rest):
     config.load()
     conn = store.connect(api.db_path())
     try:
+        if cmd == "relevance" and rest[:1] == ["dry-run"]:
+            return _relevance_dry_run(conn, rest[1:])
         return _db_cmd(conn, cmd, rest)
     finally:
         conn.close()  # Windows cannot delete a database that is still open
