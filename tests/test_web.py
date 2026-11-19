@@ -81,6 +81,9 @@ class WebTests(unittest.TestCase):
         code, v = self.call("POST", "/areas", {"action": "save", "areas": [" Cloud ", "AI"], "employment": ["full-time"]})
         self.assertEqual((code, v["areas"], v["employment"]), (200, ["cloud", "ai"], ["full-time"]))
         self.assertEqual(self.call("POST", "/areas", {"action": "save", "areas": []}, {"Origin": "http://evil.example"})[0], 403)
+        code, v = self.call("POST", "/areas", {"action": "get"})
+        self.assertEqual((code, v), (200, {"areas": ["cloud", "ai"], "senior_ic": [], "employment": ["full-time"]}))
+        self.assertEqual(self.call("POST", "/areas", {"action": "get"}, {"Origin": "http://evil.example"})[0], 403)
 
     def test_filters_endpoint(self):
         code, v = self.call("GET", "/filters")

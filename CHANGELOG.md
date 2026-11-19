@@ -2,6 +2,7 @@
 
 ## 1.1.1
 
+- Filters and the ATS optimizer show only the top 15 words with a Show all button. A learned word now needs 4 not-a-match choices, and a missing keyword must appear in at least 5 kits to be listed by default.
 - Glassdoor job alerts are read again (their links moved to country sites such as glassdoor.ca, so no jobs came through).
 - Indeed alert emails now give every job they list, not only the first one, and job links wrapped in Indeed's click tracking are opened.
 - ZipRecruiter alerts are read again after a change to their links.

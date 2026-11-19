@@ -1092,6 +1092,7 @@ document.addEventListener('click', e => {
   if (t.id === 'fu-go') return draft(t.dataset.key);
   if (t.id === 'fu-copy') { const v = ($('fu-subject').hidden ? '' : 'Subject: ' + $('fu-subject').value + '\n\n') + $('fu-out').value; navigator.clipboard?.writeText(v).then(() => toast('Copied'), () => { $('fu-out').select(); toast('Selected. Press Ctrl+C.'); }); return; }
   if (t.dataset.filter) { filter = t.dataset.filter; return renderBoard(); }
+  if (t.dataset.learnedAll) { e.stopPropagation(); LRALL = !LRALL; loadLearned(); return; }
   if (t.dataset.learned) { e.stopPropagation(); learnedPost({action: t.dataset.learned, term: t.dataset.term}).then(j => j && loadLearned()); return; }
   if (t.dataset.learnedLevels) { e.stopPropagation(); const items = t.dataset.learnedLevels === 'suggest' ? SUGGESTED_LEVELS : [...document.querySelectorAll('.lw-level:checked')].map(x => x.value); learnedPost({action: 'levels', items}).then(j => { if (j) { toast('Saved'); loadLearned(); } }); return; }
   if (t.dataset.addInclude) { e.stopPropagation(); const cur = $('lw-include').value.split(','); learnedPost({action: 'include', items: cur.concat(t.dataset.addInclude.split(','))}).then(j => { if (j) { toast('Saved'); loadLearned(); } }); return; }
@@ -1302,13 +1303,14 @@ function atsAnswer(term, state){
 function atsTermRow(term, state, extra){
   return '<div class="item"><div class="top"><span class="t">' + esc(term) + '</span> <span class="tag' + (state === 'open' ? ' ats-low' : state === 'no' ? '' : ' ats-ok') + '">' + ATS_STATE[state] + '</span>' + (extra || '') + '</div>' + atsAnswer(term, state) + '</div>';
 }
+let ATSALL = false;
 function atsCommon(kits){
   const n = {}, st = {};
   kits.forEach(k => k.missing.forEach(x => { n[x.term] = (n[x.term] || 0) + 1; st[x.term] = x.state; }));
-  const open = Object.keys(n).filter(t => st[t] === 'open').sort((a, b) => n[b] - n[a] || a.localeCompare(b));
+  const ALL = ATSALL, open = Object.keys(n).filter(t => st[t] === 'open' && (ALL || n[t] >= 5)).sort((a, b) => n[b] - n[a] || a.localeCompare(b));
   const done = Object.keys(n).filter(t => st[t] !== 'open' && st[t] !== 'backed').sort();
   return '<p class="note">Keywords your postings ask for that your resumes lack, most frequent first. One answer applies to every kit. Answer Have or Related only when it is true; the evidence goes into your skill inventory and makes the keyword usable by tailoring.</p>'
-    + (open.length ? '<div class="list">' + open.slice(0, 60).map(t => atsTermRow(t, 'open', ' <span class="note">in ' + n[t] + ' kit' + (n[t] === 1 ? '' : 's') + '</span>')).join('') + '</div>' : '<div class="empty">Every missing keyword has an answer.</div>')
+    + (open.length ? '<div class="list">' + open.slice(0, ALL ? 200 : 15).map(t => atsTermRow(t, 'open', ' <span class="note">in ' + n[t] + ' kit' + (n[t] === 1 ? '' : 's') + '</span>')).join('') + '</div>' + '<div class="actions"><button class="btn" data-atsall="1">' + (ALL ? 'Show top 15' : 'Show all') + '</button></div>' : '<div class="empty">Every missing keyword has an answer.</div>')
     + (done.length ? '<details class="box"><summary>Answered (' + done.length + ')</summary><div class="list">' + done.map(t => atsTermRow(t, st[t])).join('') + '</div></details>' : '');
 }
 function atsKit(k){
@@ -1363,9 +1365,10 @@ function renderAts(){
   opened.forEach(r => { const d = document.querySelector('#ats-body details[data-atskit="' + CSS.escape(r) + '"]'); if (d) d.open = true; });
 }
 document.addEventListener('click', async e => {
-  const t = e.target.closest('#ats-body [data-atab],#ats-body [data-ats],#ats-body [data-skill],#ats-body [data-atsmore]');
+  const t = e.target.closest('#ats-body [data-atab],#ats-body [data-ats],#ats-body [data-skill],#ats-body [data-atsmore],#ats-body [data-atsall]');
   if (!t) return;
   if (t.dataset.atab) { ATAB = t.dataset.atab; return renderAts(); }
+  if (t.dataset.atsall) { ATSALL = !ATSALL; return renderAts(); }
   if (t.dataset.atsmore !== undefined) { ATS_SHOW += 25; return renderAts(); }
   if (t.dataset.ats) {
     const term = t.dataset.term, id = atsId(term), box = t.closest('.item');
@@ -1396,12 +1399,13 @@ async function learnedPost(body){
 }
 let SUGGESTED_LEVELS = [];
 function hr(h){ return (h < 10 ? '0' : '') + h + ':00'; }
+let LRALL = false;
 async function loadLearned(){
   let d; try { d = await (await fetch('/learned')).json(); } catch (e) { return; }
   SUGGESTED_LEVELS = d.suggested;
   const sec = document.createElement('section'); sec.id = 'learned-sec';
   const old = $('learned-sec'); if (old) old.remove();
-  const rules = d.rules.map(r => '<div class="item"><div class="top"><span class="t">' + esc(r.term) + (r.ai ? ' (AI suggestion)' : '') + '</span>'
+  const rules = d.rules.slice(0, LRALL ? 500 : 15).map(r => '<div class="item"><div class="top"><span class="t">' + esc(r.term) + (r.ai ? ' (AI suggestion)' : '') + '</span>'
     + '<button class="btn" data-learned="' + (r.forgotten ? 'restore' : 'forget') + '" data-term="' + esc(r.term) + '">' + (r.forgotten ? 'Restore' : 'Forget') + '</button></div>'
     + '<div class="d">' + (r.forgotten ? 'Not used any more. ' : '') + (r.ai ? 'Suggested by an AI from your past choices; it can be wrong.' : 'You marked ' + r.neg + ' roles with this word as not a match and applied to none.') + '</div></div>').join('');
   const DIM = {source: 'Source', level: 'Level', band: 'Fit'};
@@ -1429,8 +1433,9 @@ async function loadLearned(){
     + '<p class="note">' + (lv.length ? 'Saved levels are used.' : 'No levels saved, so no level filtering yet. From your work history' + (d.years == null ? '' : ' (about ' + d.years + ' years)') + ' this looks like: <strong>' + esc(d.suggested.map(k => (d.ladder.find(l => l.id === k) || {}).label || k).join(', ')) + '</strong>.') + '</p>'
     + '<div class="actions"><button class="btn primary" data-learned-levels="1">Save levels</button>' + (lv.length ? '' : '<button class="btn" data-learned-levels="suggest">Use the suggestion</button>') + '</div></div>'
     + '<h2>What the system learned</h2>'
-    + '<p class="note">Every Not applying, Applied and Apply anyway press teaches it. A word becomes a rule after 2 matching not-a-match choices and none that contradict it. Roles that match a rule are moved to Failed your rules for you to check; nothing is deleted, and pay, location, work authorization and never-submit rules are never changed by learning.</p>'
+    + '<p class="note">Every Not applying, Applied and Apply anyway press teaches it. A word becomes a rule after 4 matching not-a-match choices and none that contradict it. Roles that match a rule are moved to Failed your rules for you to check; nothing is deleted, and pay, location, work authorization and never-submit rules are never changed by learning.</p>'
     + '<div class="list">' + (rules || '<div class="item"><div class="d">Nothing learned yet. Use Not applying with a reason (Not a match is the strongest signal).</div></div>') + '</div>'
+    + (d.rules.length > 15 ? '<div class="actions"><button class="btn" data-learned-all="1">' + (LRALL ? 'Show top 15' : 'Show all ' + d.rules.length) + '</button></div>' : '')
     + (hints ? '<h2>Source suggestions</h2><div class="list">' + hints + '</div>' : '')
     + (prefs ? '<h2>What your other reasons say</h2><div class="list">' + prefs + '</div>' : '')
     + (missed ? '<h2>Roles you added that I missed, and feeds that send the wrong roles</h2><div class="list">' + missed + '</div>' : '')
@@ -1679,6 +1684,32 @@ async function wizProfile(){
     + '<div style="display:flex;gap:8px"><button class="btn primary" data-wiz="psave">Save profile</button><button class="btn" data-wiz="pnext">Continue</button><button class="btn" data-wiz="close">Close</button></div></div>';
   w.hidden = false; refreshProfileBar();
   if (r.draft) wizMsg(true, 'We restored the draft you had not saved yet. Press Save profile when you are ready.');
+}
+// Target areas screen: the list that decides which roles stay on the board. Proposed from the resume, always edited by the user.
+async function wizAreas(propose){
+  const w = $('wiz'), v = x => esc((x || []).join('\n'));
+  let cur = {areas: [], senior_ic: [], employment: []}, src = '';
+  try { cur = await wizCall('/areas', {action: 'get'}); } catch (e) {}
+  if (propose) {
+    try { const p = await wizCall('/areas', {action: 'propose'}); cur.areas = p.areas; cur.senior_ic = p.senior_ic; src = p.source; } catch (e) { src = 'error'; }
+  }
+  const note = src === 'ai' ? 'Suggested by the AI from your resume. Check it.' : src === 'titles' ? 'Suggested from the job titles in your resume (no AI used). Check it.'
+    : src === 'error' ? 'Could not read your resume. Type your areas below.' : '';
+  const types = ['full-time', 'contract', 'part-time'], emp = new Set(cur.employment || []);
+  w.innerHTML = '<div style="max-width:760px;margin:0 auto;display:grid;gap:12px"><h2>Your target areas</h2>'
+    + '<p>A job title must name one of these fields to stay on your board. Nothing is filtered until you save a list; leave the box empty to keep every role.</p>'
+    + '<div id="wiz-err" role="alert" style="color:var(--bad,#b00)"></div><div id="wiz-ok" role="status"></div>'
+    + (note ? '<p role="status"><b>' + esc(note) + '</b></p>' : '')
+    + '<label>Fields, one per line<br><textarea id="ar-areas" rows="8" placeholder="cloud&#10;security">' + v(cur.areas) + '</textarea></label>'
+    + '<label>Senior individual-contributor words, one per line<br><small>A "staff" or "principal" title with one of these words is kept, for example architect or engineer.</small><br><textarea id="ar-ic" rows="3">' + v(cur.senior_ic) + '</textarea></label>'
+    + '<fieldset><legend>Job types you want</legend><small>Tick none to keep every type.</small><br>'
+    + types.map(t => '<label style="margin-right:12px"><input type="checkbox" class="ar-emp" value="' + t + '"' + (emp.has(t) ? ' checked' : '') + '> ' + t + '</label>').join('') + '</fieldset>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-wiz="arpropose">Suggest from my resume</button><button class="btn primary" data-wiz="arsave">Save</button><button class="btn" data-wiz="arnext">Continue</button><button class="btn" data-wiz="close">Close</button></div></div>';
+  w.hidden = false;
+}
+function wizAreasForm(){
+  const ls = id => $(id).value.split('\n').map(x => x.trim()).filter(Boolean);
+  return {action: 'save', areas: ls('ar-areas'), senior_ic: ls('ar-ic'), employment: [...document.querySelectorAll('#wiz .ar-emp:checked')].map(x => x.value)};
 }
 async function wizSaveWants(){
   if (!$('w-targets')) return;
@@ -1974,7 +2005,10 @@ document.addEventListener('click', async e => {
     else if (a === 'next2') { await wizCall('/wizard/skip', {step: 2}); await wizProfile(); }
     else if (a === 'addjob') $('wjobs').insertAdjacentHTML('beforeend', wizJobRow());
     else if (a === 'psave') { const r = await wizCall('/wizard/profile', wizProfileForm()); await wizSaveWants(); wizMsg(!(r.date_warnings || []).length, 'Saved. ' + (r.unconfirmed ? r.unconfirmed + ' item(s) not ticked yet, so they are not used.' : 'All items confirmed.') + ' ' + (r.date_warnings || []).join(' ')); }
-    else if (a === 'pnext') { await wizCall('/wizard/profile', wizProfileForm()); await wizSaveWants(); await wizQc(); }
+    else if (a === 'pnext') { await wizCall('/wizard/profile', wizProfileForm()); await wizSaveWants(); const had = (await wizCall('/areas', {action: 'get'})).areas.length; await wizAreas(!had); }
+    else if (a === 'arpropose') { await wizAreas(true); }
+    else if (a === 'arsave') { await wizCall('/areas', wizAreasForm()); wizMsg(true, 'Saved.'); }
+    else if (a === 'arnext') { await wizCall('/areas', wizAreasForm()); await wizQc(); }
     else if (a === 'qsave') { await wizCall('/wizard/qcrules', wizQcForm()); wizMsg(true, 'Saved.'); }
     else if (a === 'qnext') { await wizCall('/wizard/qcrules', wizQcForm()); await wizCall('/wizard/skip', {step: 3}); await wizRules(); }
     else if (a === 'qstarter') { const t = $('q-words'); const have = new Set(t.value.split('\n').map(s => s.trim()).filter(Boolean)); $('wiz')._starter.forEach(x => have.add(x)); t.value = [...have].join('\n'); }

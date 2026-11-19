@@ -575,6 +575,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         conn = store.connect(self.db_file)
         try:
+            if data.get("action") == "get":
+                s = relevance.settings(conn)
+                return self._send(200, {k: s.get(k, []) for k in ("areas", "senior_ic", "employment")})
             if data.get("action") == "propose":
                 f = self.cfg_file.parent / "Candidate_Profile.md"
                 text = f.read_text(encoding="utf-8") if f.is_file() else ""
@@ -586,7 +589,7 @@ class _Handler(BaseHTTPRequestHandler):
                 if lst("areas") is None:
                     return self._send(400, {"error": "areas: a list of words expected"})
                 return self._send(200, relevance.save_areas(conn, lst("areas"), lst("senior_ic") or [], lst("employment")))
-            return self._send(400, {"error": "action: propose or save expected"})
+            return self._send(400, {"error": "action: get, propose or save expected"})
         except (ValueError, store.Conflict, config.ConfigError) as e:
             return self._send(400, {"error": str(e)})
         except sqlite3.Error:

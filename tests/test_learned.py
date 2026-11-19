@@ -63,8 +63,8 @@ class Learned(unittest.TestCase):
         self.assertEqual(relevance.years_of([j("x", "Jan 2019 - Present")], TODAY), 7)
         self.assertIsNone(relevance.years_of([j("x", "")]))
 
-    def test_rule_needs_two_consistent_skips_and_no_positive(self):
-        for t in ("Oncology Nurse Lead", "Oncology Pharmacist"):
+    def test_rule_needs_four_consistent_skips_and_no_positive(self):
+        for t in ("Oncology Nurse Lead", "Oncology Pharmacist", "Oncology Clerk", "Oncology Porter"):
             self.press(role(self.conn, t), "skipped", "Not a match")
         m = learned.model(self.conn)
         self.assertEqual([r["term"] for r in m["rules"]], ["oncology"])
@@ -126,8 +126,9 @@ class Learned(unittest.TestCase):
         k = role(self.conn, "Oncology Nurse")
         self.press(k, "skipped", "Not a match")
         self.press(k, "skipped", "Not a match")
-        self.press(role(self.conn, "Oncology Aide"), "skipped", "Not a match")
-        self.assertEqual(len(store.list_docs(self.conn, "signals")), 2)
+        for t in ("Oncology Aide", "Oncology Clerk", "Oncology Porter"):
+            self.press(role(self.conn, t), "skipped", "Not a match")
+        self.assertEqual(len(store.list_docs(self.conn, "signals")), 4)
         learned.forget(self.conn, "oncology")
         self.assertIsNone(relevance.check("Oncology Lead", relevance.settings(self.conn), learned.model(self.conn)))
         learned.forget(self.conn, "oncology", restore=True)
@@ -140,9 +141,11 @@ class Learned(unittest.TestCase):
     def test_seed_from_existing_roles(self):
         role(self.conn, "Oncology Nurse", status="skipped (Not a match)")
         role(self.conn, "Oncology Aide", status="skipped (Not a match)")
+        role(self.conn, "Oncology Clerk", status="skipped (Not a match)")
+        role(self.conn, "Oncology Porter", status="skipped (Not a match)")
         role(self.conn, "Platform Lead", status="applied", date_applied="2026-10-01")
-        self.assertEqual(learned.seed(self.conn), 3)
-        self.assertEqual(learned.seed(self.conn), 3)
+        self.assertEqual(learned.seed(self.conn), 5)
+        self.assertEqual(learned.seed(self.conn), 5)
         self.assertEqual([r["term"] for r in learned.train(self.conn)["rules"]], ["oncology"])
 
     def test_ai_is_off_by_default_and_never_overrides_positives(self):

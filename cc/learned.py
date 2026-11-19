@@ -9,6 +9,7 @@ from cc import store
 from cc.rules import job_key
 from cc import kitprefs, reasons, relevance
 
+RULE_MIN = 4                        # a learned word needs this many consistent not-a-match choices
 MIN_SIGNALS = 2                      # a rule needs this many consistent skips and no contradicting positive
 NOT_FIT = reasons.GROUPS["title"]
 POSITIVE = {"applied", "interview", "interviewing", "callback", "next_round", "offer", "gate_apply", "added_manually"}  # adding a role by hand says you want roles like it
@@ -247,7 +248,7 @@ def train(conn, today=None):
                 neg[t] += 1
                 why.setdefault(t, Counter())[d.get("reason", "")] += 1
     rules = [{"term": t, "neg": n, "pos": pos[t], "why": dict(why[t])} for t, n in neg.most_common()
-             if n >= MIN_SIGNALS and not pos[t]]
+             if n >= RULE_MIN and not pos[t]]
     model = {"rules": rules[:200], "pos_terms": sorted(pos)[:300], "outcomes": outcomes(sigs),
              "trained": (today or dt.date.today()).isoformat(), "signals": sum(neg.values()) + sum(pos.values())}
     _put(conn, "learned", "model", model)
